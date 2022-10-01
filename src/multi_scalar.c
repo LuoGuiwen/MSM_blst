@@ -292,15 +292,30 @@ static void ptype##_integrate_buckets(ptype *out, ptype##xyzz buckets[], \
     ptype##xyzz_to_Jacobian(out, ret); \
 } \
 \
+\
 static void ptype##_bucket(ptype##xyzz buckets[], limb_t booth_idx, \
                            size_t wbits, const ptype##_affine *p) \
 { \
     bool_t booth_sign = (booth_idx >> wbits) & 1; \
 \
-    booth_idx &= (1<<wbits) - 1; \  // booth_id_idx % (2^wbits)
+    booth_idx &= (1<<wbits) - 1; \
     if (booth_idx--) \
         ptype##xyzz_dadd_affine(&buckets[booth_idx], &buckets[booth_idx], \
                                                      p, booth_sign); \
+} \
+\
+static void ptype##_bucket_CHES(ptype##xyzz buckets[], limb_t booth_idx, unsigned char booth_sign, \
+                           const ptype##_affine *p) \
+{ \
+    if (booth_idx--) \
+        ptype##xyzz_dadd_affine(&buckets[booth_idx], &buckets[booth_idx], \
+                                                     p, booth_sign); \
+} \
+\
+static void ptype##xyzz_test(ptype##xyzz *out, const ptype##xyzz *in,\
+                        const ptype##_affine *p,  unsigned char booth_sign)\
+{ \
+    ptype##xyzz_dadd_affine(out, in, p, (bool_t) booth_sign);\
 } \
 \
 static void ptype##_prefetch(const ptype##xyzz buckets[], limb_t booth_idx, \
@@ -316,7 +331,7 @@ static void ptype##s_tile_pippenger(ptype *ret, \
                                     size_t npoints, \
                                     const byte *const scalars[], size_t nbits, \
                                     ptype##xyzz buckets[], \
-                                    size_t bit0, size_t wbits, size_t cbits) \  // Guiwen. Please look into this algorithm
+                                    size_t bit0, size_t wbits, size_t cbits) \
 { \
     limb_t wmask, wval, wnxt; \
     size_t i, z, nbytes; \
@@ -349,6 +364,7 @@ static void ptype##s_tile_pippenger(ptype *ret, \
     ptype##_integrate_buckets(ret, buckets, cbits - 1); \
 } \
 \
+\
 static void ptype##s_mult_pippenger(ptype *ret, \
                                     const ptype##_affine *const points[], \
                                     size_t npoints, \
@@ -380,6 +396,10 @@ static void ptype##s_mult_pippenger(ptype *ret, \
 \
 size_t prefix##s_mult_pippenger_scratch_sizeof(size_t npoints) \
 {   return sizeof(ptype##xyzz) << (pippenger_window_size(npoints)-1);   } \
+\
+size_t prefix##s_mult_pippenger_scratch_sizeof_CHES_q_over_5(size_t window) \
+{   return sizeof(ptype##xyzz)*((window/2)+1);} \
+\
 void prefix##s_tile_pippenger(ptype *ret, \
                               const ptype##_affine *const points[], \
                               size_t npoints, \
@@ -394,23 +414,45 @@ void prefix##s_tile_pippenger(ptype *ret, \
     ptype##s_tile_pippenger(ret, points, npoints, scalars, nbits, scratch, \
                                  bit0, wbits, cbits); \
 } \
+\
 void prefix##s_mult_pippenger(ptype *ret, \
                               const ptype##_affine *const points[], \
                               size_t npoints, \
                               const byte *const scalars[], size_t nbits, \
                               ptype##xyzz scratch[]) \
-{ ptype##s_mult_pippenger(ret, points, npoints, scalars, nbits, scratch, 0); }
-
+{ ptype##s_mult_pippenger(ret, points, npoints, scalars, nbits, scratch, 0);}\
+\
+void prefix##xyzz_dadd_affine(ptype##xyzz *out, \
+                const ptype##xyzz *in, const ptype##_affine *p,  uint32_t booth_sign)\
+{ ptype##xyzz_test(out, in , p, booth_sign); }\
+\
+void prefix##_prefetch(const ptype##xyzz buckets[], limb_t booth_idx){\
+    vec_prefetch(&buckets[booth_idx], sizeof(buckets[booth_idx]));\
+}\
+\
+void prefix##xyzz_to_Jacobian(ptype *out, const ptype##xyzz *in)\
+{\
+    ptype##xyzz_to_Jacobian(out, in);\
+}\
+\
+void prefix##xyzz_dadd(ptype##xyzz *p3, const ptype##xyzz *p1, \
+                                              const ptype##xyzz *p2)\
+{\
+    ptype##xyzz_dadd(p3, p1, p2); \
+}\
+\
 
 
 DECLARE_PRIVATE_POINTXYZZ(POINTonE1, 384)
 POINTXYZZ_TO_JACOBIAN_IMPL(POINTonE1, 384, fp)
+POINT_TO_XYZZ_IMPL(POINTonE1, 384, fp)
 POINTXYZZ_DADD_IMPL(POINTonE1, 384, fp)
 POINTXYZZ_DADD_AFFINE_IMPL(POINTonE1, 384, fp, BLS12_381_Rx.p)
 POINTS_MULT_PIPPENGER_IMPL(blst_p1, POINTonE1)
 
 DECLARE_PRIVATE_POINTXYZZ(POINTonE2, 384x)
 POINTXYZZ_TO_JACOBIAN_IMPL(POINTonE2, 384x, fp2)
+POINT_TO_XYZZ_IMPL(POINTonE2, 384x, fp2)
 POINTXYZZ_DADD_IMPL(POINTonE2, 384x, fp2)
 POINTXYZZ_DADD_AFFINE_IMPL(POINTonE2, 384x, fp2, BLS12_381_Rx.p2)
 POINTS_MULT_PIPPENGER_IMPL(blst_p2, POINTonE2)

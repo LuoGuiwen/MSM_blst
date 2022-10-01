@@ -258,15 +258,16 @@ std::ostream& operator<<(std::ostream& os, const uint64_t* b)
 
 const size_t N_POINTS = (size_t) (1 << 18);  
 const blst_p1 G1_BLST_DEFAULT_GENERATOR = *blst_p1_generator(); // Default generator in blst_p1
-const int EXPONENT_OF_q = 14;
+const int EXPONENT_OF_q = 20;
 const int q_RADIX = (int) (1 << EXPONENT_OF_q);
-const int h_LEN_SCALAR = 19;
-const int ah_LEADING = 7;
+const int h_LEN_SCALAR = 13;
+const int ah_LEADING = 29677;
 const int d_MAX_DIFF = 60;
-
-std::set<int> MULTI_SET = {1, 2, 3};
-std::set<int> BUCKET_SET;
+const int B_size = 220931;
+#include "bucket_set_20.h" //define bucket_set in a seperate file.
+// std::set<int> BUCKET_SET;
 std::vector<int> BUCKET_SET_ASCEND_VEC;
+std::set<int> MULTI_SET = {1, 2, 3};
 
 /* This once leads to a big BUG. */
 std::array<int, q_RADIX/2 +1> BUCKET_VALUE_TO_ITS_INDEX; //Consider the maximum element in the BUCKET_SET, which is very very important
@@ -274,9 +275,11 @@ std::array<int, q_RADIX/2 +1> BUCKET_VALUE_TO_ITS_INDEX; //Consider the maximum 
 std::array<std::array<int,3>, q_RADIX+1>  DIGIT_CONVERSION_HASH_TABLE;
 
 std::array< blst_p1_affine, N_POINTS> *FIX_POINTS_LIST; 
-std::array< std::array< std::array< blst_p1_affine, 6>, h_LEN_SCALAR >, N_POINTS> *PRECOMPUTATION_POINTS_LIST_6nh; // Define the pointer then use new to allocate memory in heap, since this array is too big.
+std::array< std::array<blst_p1_affine, h_LEN_SCALAR >, N_POINTS> *PRECOMPUTATION_POINTS_LIST_nh; // Define the pointer then use new to allocate memory in heap, since this array is too big.
+std::array< std::array<blst_p1_affine, h_LEN_SCALAR >, N_POINTS> *PRECOMPUTATION_POINTS_LIST_nh_2;
+std::array< std::array<blst_p1_affine, h_LEN_SCALAR >, N_POINTS> *PRECOMPUTATION_POINTS_LIST_nh_3;
 
-std::array< uint256_t, N_POINTS> *SCALARS_LIST;
+uint256_t* SCALARS_ARRAY;
 
 // std::array<blst_p1_affine, N_POINTS*h_LEN_SCALAR> *POINT_INTERMEDIATE;
 
@@ -294,51 +297,51 @@ Functions
 */
 
 
-// uint256_t random_scalar_less_than_r(){
-//     uint256_t ret;
-//     ret.data[7] = uint32_t(rand() % (0x73eda753)); // make sure the scalar is less than r.
-//     ret.data[6] = uint32_t(rand());
-//     ret.data[5] = uint32_t(rand());
-//     ret.data[4] = uint32_t(rand());
-//     ret.data[3] = uint32_t(rand());
-//     ret.data[2] = uint32_t(rand());
-//     ret.data[1] = uint32_t(rand());
-//     ret.data[0] = uint32_t(rand());
-
-//     return ret;
-// }
-
-
 uint256_t random_scalar_less_than_r(){
-
     uint256_t ret;
-    auto seed = time(NULL);
-    srand((unsigned) seed);
     ret.data[7] = uint32_t(rand() % (0x73eda753)); // make sure the scalar is less than r.
-
-    srand((unsigned) seed+1);
     ret.data[6] = uint32_t(rand());
-
-    srand((unsigned) seed+2);
     ret.data[5] = uint32_t(rand());
-
-    srand((unsigned) seed+3);
     ret.data[4] = uint32_t(rand());
-
-    srand((unsigned) seed+4);
     ret.data[3] = uint32_t(rand());
-
-    srand((unsigned) seed+5);
     ret.data[2] = uint32_t(rand());
-
-    srand((unsigned) seed+6);
     ret.data[1] = uint32_t(rand());
-
-    srand((unsigned) seed+7);
     ret.data[0] = uint32_t(rand());
 
     return ret;
 }
+
+
+// uint256_t random_scalar_less_than_r(){
+
+//     uint256_t ret;
+//     auto seed = time(NULL);
+//     srand((unsigned) seed);
+//     ret.data[7] = uint32_t(rand() % (0x73eda753)); // make sure the scalar is less than r.
+
+//     srand((unsigned) seed+1);
+//     ret.data[6] = uint32_t(rand());
+
+//     srand((unsigned) seed+2);
+//     ret.data[5] = uint32_t(rand());
+
+//     srand((unsigned) seed+3);
+//     ret.data[4] = uint32_t(rand());
+
+//     srand((unsigned) seed+4);
+//     ret.data[3] = uint32_t(rand());
+
+//     srand((unsigned) seed+5);
+//     ret.data[2] = uint32_t(rand());
+
+//     srand((unsigned) seed+6);
+//     ret.data[1] = uint32_t(rand());
+
+//     srand((unsigned) seed+7);
+//     ret.data[0] = uint32_t(rand());
+
+//     return ret;
+// }
 
 typedef std::array<std::array< int, 2>, h_LEN_SCALAR> scalar_MB_expr;
 void print( const scalar_MB_expr &expr){
@@ -454,13 +457,14 @@ void init(){
 
     //Initialize BUCKET_SET
 
-    BUCKET_SET = construct_bucket_set(q_RADIX, ah_LEADING);
-    std::copy(BUCKET_SET.begin(), BUCKET_SET.end(), std::back_inserter(BUCKET_SET_ASCEND_VEC));
+    // BUCKET_SET = construct_bucket_set(q_RADIX, ah_LEADING);
+    // std::copy(BUCKET_SET.begin(), BUCKET_SET.end(), std::back_inserter(BUCKET_SET_ASCEND_VEC));
+    // std::cout<< "BUCKET_SET initialized. The size of BUCKET_SET is: " << BUCKET_SET.size() << std::endl;
+    std::cout<< "BUCKET_SET directly read from file. The size of BUCKET_SET is: " << B_size << std::endl;
 
-    std::cout<< "BUCKET_SET initialized. The size of BUCKET_SET is: " << BUCKET_SET.size() << std::endl;
-
-    for(size_t i = 0; i < BUCKET_SET.size(); ++i){
-        BUCKET_VALUE_TO_ITS_INDEX[BUCKET_SET_ASCEND_VEC[i]] = i;
+    for(size_t i = 0; i < B_size; ++i){
+        BUCKET_SET_ASCEND_VEC.insert(BUCKET_SET_ASCEND_VEC.begin()+i,  BUCKET_SET[i]);
+        BUCKET_VALUE_TO_ITS_INDEX[BUCKET_SET[i]] = i;
     }
     
     // Initialize  DIGIT_CONVERSION_HASH_TABLE;
@@ -495,13 +499,12 @@ void init(){
     // POINT_INTERMEDIATE = new std::array< blst_p1_affine, N_POINTS*h_LEN_SCALAR>;
     // std::cout<< "POINT_INTERMEDIATE allocated" <<std::endl;
 
-    // Initialize SCALARS_LIST
-    SCALARS_LIST = new std::array< uint256_t, N_POINTS>;
+    // Initialize SCALARS_ARRAY
+    SCALARS_ARRAY = new uint256_t[N_POINTS];
         for(size_t i = 0; i < N_POINTS; ++i){
-            (*SCALARS_LIST)[i] = random_scalar_less_than_r();
-            //  std::cout<< (*SCALARS_LIST)[i] <<std::endl;// it always generates the same psudo-random number.
-        }
-      std::cout<< "SCALARS_LIST Generated" <<std::endl;
+            SCALARS_ARRAY[i] = random_scalar_less_than_r();
+         }
+      std::cout<< "SCALARS_ARRAY Generated" <<std::endl;
 
 
 }
@@ -556,8 +559,7 @@ blst_p1_affine trivial_mult_scalar_multiplication_2(){
 
     for(size_t i = 0; i < N_POINTS; ++i){
         blst_p1_from_affine(&tmp, &(*FIX_POINTS_LIST)[i]);
-        // ret1 = single_scalar_multiplication((*SCALARS_LIST)[i], tmp);
-        blst_scalar_from_uint32( &scalar, (*SCALARS_LIST)[i].data);
+        blst_scalar_from_uint32( &scalar, SCALARS_ARRAY[i].data);
         blst_p1_mult( &ret1, &tmp, scalar.b, (size_t) 255);
         blst_p1_add_or_double(&ret2, &ret2, &ret1);
         }    
@@ -582,11 +584,17 @@ void trivial_mult_scalar_multiplication(blst_p1 *ret, const blst_p1_affine *cons
 }
 
 
-void init_PRECOMPUTATION_POINTS_LIST_6nh(){
+void init_PRECOMPUTATION_POINTS_LIST_nh(){
     /*
     ### Initialize the precomputation ###
     */
-    PRECOMPUTATION_POINTS_LIST_6nh = new std::array< std::array< std::array< blst_p1_affine, 6>, h_LEN_SCALAR >, N_POINTS>;
+    PRECOMPUTATION_POINTS_LIST_nh   = new std::array< std::array< blst_p1_affine, h_LEN_SCALAR >, N_POINTS>;
+    PRECOMPUTATION_POINTS_LIST_nh_2 = new std::array< std::array< blst_p1_affine, h_LEN_SCALAR >, N_POINTS>;
+    PRECOMPUTATION_POINTS_LIST_nh_3 = new std::array< std::array< blst_p1_affine, h_LEN_SCALAR >, N_POINTS>;
+    // PRECOMPUTATION_POINTS_LIST_nh_n1 = new std::array< std::array< blst_p1_affine, h_LEN_SCALAR >, N_POINTS>;
+    // PRECOMPUTATION_POINTS_LIST_nh_n2 = new std::array< std::array< blst_p1_affine, h_LEN_SCALAR >, N_POINTS>;
+    // PRECOMPUTATION_POINTS_LIST_nh_n3 = new std::array< std::array< blst_p1_affine, h_LEN_SCALAR >, N_POINTS>;
+
 
     auto st = std::chrono::steady_clock::now();
     blst_p1_affine Pt;
@@ -594,19 +602,28 @@ void init_PRECOMPUTATION_POINTS_LIST_6nh(){
     for(int i = 0; i< N_POINTS; ++i){
         blst_p1_affine qjQi = (*FIX_POINTS_LIST)[i];
         for(uint j = 0; j< h_LEN_SCALAR; ++j){
-            for(uint m= 0;  m < 3; ++m){
-                (*PRECOMPUTATION_POINTS_LIST_6nh)[i][j][m] = single_scalar_multiplication( m+1, qjQi);
-                auto tmp_Pa = (*PRECOMPUTATION_POINTS_LIST_6nh)[i][j][m];
-                blst_fp_sub(&tmp_Pa.y, &FP_Z, &tmp_Pa.y);
-                (*PRECOMPUTATION_POINTS_LIST_6nh)[i][j][5 - m] = tmp_Pa;
-            }
+            (*PRECOMPUTATION_POINTS_LIST_nh)[i][j] = qjQi;
+            (*PRECOMPUTATION_POINTS_LIST_nh_2)[i][j] = single_scalar_multiplication(2, qjQi);
+            (*PRECOMPUTATION_POINTS_LIST_nh_3)[i][j] = single_scalar_multiplication(3, qjQi);
+            // auto tmp_Pa = (*PRECOMPUTATION_POINTS_LIST_nh)[i][j];
+            // blst_fp_sub(&tmp_Pa.y, &FP_Z, &tmp_Pa.y);
+            // (*PRECOMPUTATION_POINTS_LIST_nh_n1)[i][j] = tmp_Pa;
+
+            // tmp_Pa = (*PRECOMPUTATION_POINTS_LIST_nh_2)[i][j];
+            // blst_fp_sub(&tmp_Pa.y, &FP_Z, &tmp_Pa.y);
+            // (*PRECOMPUTATION_POINTS_LIST_nh_n2)[i][j] = tmp_Pa;
+
+            // tmp_Pa = (*PRECOMPUTATION_POINTS_LIST_nh_3)[i][j];
+            // blst_fp_sub(&tmp_Pa.y, &FP_Z, &tmp_Pa.y);
+            // (*PRECOMPUTATION_POINTS_LIST_nh_n3)[i][j] = tmp_Pa;
+
             qjQi = single_scalar_multiplication(q_RADIX, qjQi);    
         }
     }
     auto ed = std::chrono::steady_clock::now();   
 
     std::chrono::microseconds diff = std::chrono::duration_cast<std::chrono::microseconds>(ed -st);
-    std::cout<< "PRECOMPUTATION_POINTS_LIST_6nh SUCCESSFULLY CONSTRUCTED" << std::endl;
+    std::cout<< "PRECOMPUTATION_POINTS_LIST_nh SUCCESSFULLY CONSTRUCTED" << std::endl;
     std::cout << "PRECOMPUTATION Wall clock time elapse is: " << diff.count() << " us "<< std::endl;
 }
 
@@ -732,8 +749,8 @@ blst_p1 accumulation_consecutive( const std::vector<int> & consecutiveBucketSetL
 
 
 //
-blst_p1 accumulation_d(const std::vector<int>& bucketSetList, const std::vector<blst_p1>& intermediateSumList, const int d_max){
-    if (bucketSetList.size()!= intermediateSumList.size()){
+blst_p1 accumulation_d(std::vector<int> bucketSetList, const std::vector<blst_p1>& intermediateSumList, const int d_max){
+    if (B_size!= intermediateSumList.size()){
         std::cout << "ERROR: lengths do not match" <<std::endl;
         return intermediateSumList[0];
     }
@@ -743,7 +760,7 @@ blst_p1 accumulation_d(const std::vector<int>& bucketSetList, const std::vector<
     std::vector<blst_p1> tmp_d (d_max + 1,  G1_INFINITY); 
     // for(uint i = 0; i<= max_d; ++i) tmp_d.push_back(tmp); // those two initializations are equivalent
 
-    for( auto i = bucketSetList.size()-1; i>0; --i){
+    for( auto i = B_size -1; i>0; --i){
         blst_p1_add_or_double(&tmp, &tmp, &(intermediateSumList[i]));
         int differ = bucketSetList[i] -  bucketSetList[i-1];
         blst_p1_add_or_double(&(tmp_d[differ]), &(tmp_d[differ]), &tmp);
@@ -768,13 +785,13 @@ blst_p1_affine pippenger_variant_submission_CHES(){
     blst_p1_affine tmp_Pa = G1_AFFINE_INFINITY;
     blst_p1 tmp_P = G1_INFINITY;
 
-    std::vector<blst_p1> intermediate_sum_list (BUCKET_SET.size(), G1_INFINITY); 
+    std::vector<blst_p1> intermediate_sum_list (BUCKET_SET_ASCEND_VEC.size(), G1_INFINITY); 
 
     std::array<std::array< int, 2>, h_LEN_SCALAR> ret_MB_expr;
    
     for(int i = 0; i< N_POINTS; ++i){
 
-        trans_uint256_t_to_MB_radixq_expr(ret_MB_expr, (*SCALARS_LIST)[i]);
+        trans_uint256_t_to_MB_radixq_expr(ret_MB_expr, SCALARS_ARRAY[i]);
 
         for(int j = 0; j< h_LEN_SCALAR; ++j){
 
@@ -783,10 +800,10 @@ blst_p1_affine pippenger_variant_submission_CHES(){
             int index_b = BUCKET_VALUE_TO_ITS_INDEX[b];
 
             if (m>= 0) {
-                tmp_Pa = (*PRECOMPUTATION_POINTS_LIST_6nh)[i][j][ m-1 ];
+                tmp_Pa = (*PRECOMPUTATION_POINTS_LIST_nh)[i][j];
             }
             else{
-                tmp_Pa = (*PRECOMPUTATION_POINTS_LIST_6nh)[i][j][ -m-1 ];
+                tmp_Pa = (*PRECOMPUTATION_POINTS_LIST_nh)[i][j];
                 blst_fp_sub(&tmp_Pa.y, &FP_Z, &tmp_Pa.y);
             }
            
@@ -801,11 +818,151 @@ blst_p1_affine pippenger_variant_submission_CHES(){
     return res_affine;
 }
 
+void byte_str_from_uint32(uint8_t ret[4], const uint32_t a)
+{
+    uint32_t w = a;
+    ret[0] = (byte)w;
+    ret[1] = (byte)(w >> 8);
+    ret[2] = (byte)(w >> 16);
+    ret[3] = (byte)(w >> 24);
+}
 
+
+void vec_zero(void *ret, size_t num)
+{
+    volatile limb_t *rp = (volatile limb_t *)ret;
+    size_t i;
+
+    num /= sizeof(limb_t);
+
+    for (i = 0; i < num; i++)
+        rp[i] = 0;
+}
+
+ /* Calculate sum of bucket_set_ascend[i]*buckets[i] for i=0 to i= bucket_set_size - 1. 0 is in bucket_set */\
+void blst_p1_integrate_buckets(blst_p1 *out, blst_p1xyzz buckets[], int bucket_set_ascend[], size_t bucket_set_size){
+    
+    blst_p1xyzz tmp, tmp1, tmp_d[d_MAX_DIFF];
+    vec_zero(tmp_d, sizeof(tmp_d[0])*d_MAX_DIFF);
+    for(size_t i = bucket_set_size -1; i> 0; --i){
+        blst_p1xyzz_dadd(&tmp, &tmp, &buckets[i]);
+        int differ =  bucket_set_ascend[i] -  bucket_set_ascend[i-1];
+        blst_p1xyzz_dadd(&tmp_d[differ], &tmp_d[differ], &tmp);   
+    }
+    
+    vec_zero(&tmp, sizeof(tmp));
+    vec_zero(&tmp1, sizeof(tmp1));
+
+    for(int i = d_MAX_DIFF; i > 0; --i ){
+        blst_p1xyzz_dadd(&tmp, &tmp, &(tmp_d[i]));
+        blst_p1xyzz_dadd(&tmp1, &tmp1, &tmp);
+    }
+
+    blst_p1xyzz_to_Jacobian(out, &tmp1); 
+}
+
+void blst_p1_bucket_CHES(blst_p1xyzz buckets[], int booth_idx, unsigned char booth_sign, const blst_p1_affine *p){
+    if(booth_idx)blst_p1xyzz_dadd_affine(&buckets[booth_idx], &buckets[booth_idx], p, booth_sign);
+}
+
+void blst_p1_tile_pippenger_CHES_q_over_5(blst_p1 *ret, \
+                                    const blst_p1_affine *const points[], \
+                                    size_t npoints, \
+                                    const int scalars[], const unsigned char booth_signs[], \
+                                    blst_p1xyzz buckets[], int bucket_set_ascend[], size_t bucket_set_size){
+    
+    // Initialization    
+    vec_zero(buckets, sizeof(buckets[0])*bucket_set_size); \
+    vec_zero(ret, sizeof(*ret)); \
+
+    int i, scalar, booth_idx;
+    unsigned char booth_sign,  booth_idx_nxt;
+    
+    const blst_p1_affine *point = *points++;
+    
+    booth_idx = BUCKET_VALUE_TO_ITS_INDEX[*scalars++];
+    booth_sign = *booth_signs++;
+
+    booth_idx_nxt = BUCKET_VALUE_TO_ITS_INDEX[*scalars++];
+    npoints--;
+    blst_p1_bucket_CHES(buckets, booth_idx, booth_sign, point);
+    for(i =1; i < npoints; i++){
+        booth_idx = booth_idx_nxt;
+        booth_sign = *booth_signs++;
+        booth_idx_nxt = BUCKET_VALUE_TO_ITS_INDEX[*scalars++];
+        blst_p1_prefetch(buckets, booth_idx_nxt);
+        point = *points ? *points++ : point+1; 
+        blst_p1_bucket_CHES(buckets, booth_idx, booth_sign, point);
+    }
+
+    point = *points ? *points++ : point+1; 
+    booth_sign = *booth_signs;
+    blst_p1_bucket_CHES(buckets, booth_idx, booth_sign, point);
+    blst_p1_integrate_buckets(ret, buckets, bucket_set_ascend, bucket_set_size);
+
+}
+
+blst_p1_affine pippenger_variant_submission_CHES_blst_tile(){
+    
+    std::cout <<"pippenger_variant_submission_CHES_blst_tile() with custom-tailored tile accumulation" << std::endl;
+
+    // blst_p1_affine tmp_Pa = G1_AFFINE_INFINITY;
+    // blst_p1 tmp_P = G1_INFINITY;
+
+    std::array<std::array< int, 2>, h_LEN_SCALAR> ret_MB_expr;
+
+    uint64_t npoints = N_POINTS*h_LEN_SCALAR;
+
+    int* scalars;
+    scalars = new int [npoints];
+    unsigned char* booth_signs;
+    booth_signs = new unsigned char [npoints];
+
+    blst_p1_affine** points_ptr;
+    points_ptr = new blst_p1_affine* [npoints]; // points_ptr is an array of pointers that point to blst_p1_affine points.
+
+    for(int i = 0; i< N_POINTS; ++i){
+
+        trans_uint256_t_to_MB_radixq_expr(ret_MB_expr, SCALARS_ARRAY[i]);
+
+        for(int j = 0; j< h_LEN_SCALAR; ++j){
+            size_t idx = i*h_LEN_SCALAR + j;
+            int m = ret_MB_expr[j][0];
+            scalars[idx]  = ret_MB_expr[j][1];
+
+            if (m> 0) {
+                points_ptr[idx] = (m == 1)? &(*PRECOMPUTATION_POINTS_LIST_nh)[i][j]: \
+                ((m==2)? &(*PRECOMPUTATION_POINTS_LIST_nh_2)[i][j]:\
+                &(*PRECOMPUTATION_POINTS_LIST_nh_3)[i][j]);
+                booth_signs[idx] = 0; 
+            }
+            else{
+                points_ptr[idx] = (m == -1)? &(*PRECOMPUTATION_POINTS_LIST_nh)[i][j]: \
+                ((m== -2)? &(*PRECOMPUTATION_POINTS_LIST_nh_2)[i][j]:\
+                &(*PRECOMPUTATION_POINTS_LIST_nh_3)[i][j]);
+                booth_signs[idx] = 1; 
+            }  
+        }
+    }
+    blst_p1 ret_P; // Mont coordinates
+
+    blst_p1xyzz* buckets;
+    buckets = new blst_p1xyzz [B_size];
+    blst_p1_tile_pippenger_CHES_q_over_5(&ret_P, points_ptr, npoints, scalars, booth_signs,\
+                                         buckets, BUCKET_SET, B_size);
+    delete[] buckets;
+    delete[] points_ptr;
+    delete[] booth_signs;    
+    delete[] scalars;    
+    blst_p1_affine res_affine;
+    blst_p1_to_affine( &res_affine, &ret_P);
+
+    return res_affine;
+}
 
 
 // Use  blst_p1s_tile_pippenger to implement the CHES 
-blst_p1_affine pippenger_variant_submission_CHES_blst_tile(){
+blst_p1_affine pippenger_variant_submission_CHES_blst_tile_copy(){
     
     std::cout <<"pippenger_variant_submission_CHES_blst_tile() with blst_p1s_tile_pippenger" << std::endl;
 
@@ -816,8 +973,8 @@ blst_p1_affine pippenger_variant_submission_CHES_blst_tile(){
 
     uint64_t npoints = N_POINTS*h_LEN_SCALAR;
 
-    blst_scalar* INTERMEDIATE_SCALARS;
-    INTERMEDIATE_SCALARS = new  blst_scalar[npoints];
+    uint8_t* INTERMEDIATE_SCALARS;
+    INTERMEDIATE_SCALARS = new  uint8_t[npoints*4];
 
     uint8_t** scalars_ptr;
     scalars_ptr = new uint8_t* [npoints];
@@ -827,33 +984,47 @@ blst_p1_affine pippenger_variant_submission_CHES_blst_tile(){
     
     for(int i = 0; i< N_POINTS; ++i){
 
-        // std::cout << (*SCALARS_LIST)[i]<< std::endl;
-
-        trans_uint256_t_to_MB_radixq_expr(ret_MB_expr, (*SCALARS_LIST)[i]);
+        trans_uint256_t_to_MB_radixq_expr(ret_MB_expr, SCALARS_ARRAY[i]);
 
         for(int j = 0; j< h_LEN_SCALAR; ++j){
             size_t idx = i*h_LEN_SCALAR + j;
             int m = ret_MB_expr[j][0];
 
-            uint32_t b_value[8] = { 0, 0, 0, 0, 0, 0, 0, 0};
-            b_value[0] = uint32_t(ret_MB_expr[j][1]);
-            blst_scalar_from_uint32(&INTERMEDIATE_SCALARS[idx], b_value);
-            scalars_ptr[idx] = INTERMEDIATE_SCALARS[idx].b;
+            uint32_t b_value = uint32_t(ret_MB_expr[j][1]);
+            // blst_scalar_from_uint32(&INTERMEDIATE_SCALARS[idx], b_value);
+            uint8_t tmp_uint8_t_array[4];
+            byte_str_from_uint32(tmp_uint8_t_array, b_value);
+            for(int i = 0; i<4; ++i){
+                INTERMEDIATE_SCALARS[idx*4 +i] = tmp_uint8_t_array[i];
+            }
+            scalars_ptr[idx] = &INTERMEDIATE_SCALARS[idx*4];
             // scalars_ptr[idx] = INTERMEDIATE_SCALARS[1].b;
-          
-            points_ptr[idx] = (m > 0)? &(*PRECOMPUTATION_POINTS_LIST_6nh)[i][j][ m-1 ]: \
-            &(*PRECOMPUTATION_POINTS_LIST_6nh)[i][j][ 6 + m ];
+            if (m> 0) {
+                points_ptr[idx] = (m == 1)? &(*PRECOMPUTATION_POINTS_LIST_nh)[i][j]: \
+                ((m==2)? &(*PRECOMPUTATION_POINTS_LIST_nh_2)[i][j]:\
+                &(*PRECOMPUTATION_POINTS_LIST_nh_3)[i][j]);
+            }
+            else{
+                // points_ptr[idx] = (m == -1)? &(*PRECOMPUTATION_POINTS_LIST_nh_n1)[i][j]: \
+                // ((m== -2)? &(*PRECOMPUTATION_POINTS_LIST_nh_n2)[i][j]:\
+                // &(*PRECOMPUTATION_POINTS_LIST_nh_n3)[i][j]);
+               
+                points_ptr[idx] = (m == -1)? &(*PRECOMPUTATION_POINTS_LIST_nh)[i][j]: \
+                ((m== -2)? &(*PRECOMPUTATION_POINTS_LIST_nh_2)[i][j]:\
+                &(*PRECOMPUTATION_POINTS_LIST_nh_3)[i][j]);
+            }  
         }
     }
     blst_p1 ret_P; // Mont coordinates
     size_t window = EXPONENT_OF_q;
 
     limb_t* SCRATCH;
-    SCRATCH = new limb_t[blst_p1s_mult_pippenger_scratch_sizeof(npoints*8)/sizeof(limb_t)];
-    blst_p1s_tile_pippenger(&ret_P, points_ptr,\
-                            npoints, scalars_ptr,\
-                            window,  SCRATCH,\
-                            0, window);
+    SCRATCH = new limb_t[blst_p1s_mult_pippenger_scratch_sizeof_CHES_q_over_5(size_t (1<< EXPONENT_OF_q))/sizeof(limb_t)];
+    
+    // blst_p1s_tile_pippenger_CHES(&ret_P, points_ptr,\
+    //                         npoints, scalars_ptr,\
+    //                         window,  SCRATCH,\
+    //                         0, window);
     
     delete[] SCRATCH;
     delete[] points_ptr;
@@ -877,7 +1048,7 @@ void test(){
     uint8_t* scalars_ptr[N_POINTS];
 
     for(size_t i = 0; i < N_POINTS; ++i){
-            blst_scalar_from_uint32( &scalars[i], (*SCALARS_LIST)[i].data);
+            blst_scalar_from_uint32( &scalars[i], SCALARS_ARRAY[i].data);
             scalars_ptr[i] = (scalars[i].b);
     }
 
@@ -983,7 +1154,7 @@ void test_scalar_conversion_bench(){
     auto st = std::chrono::steady_clock::now();
     for(size_t i = 0; i< N_POINTS; ++i)
     {
-    trans_uint256_t_to_MB_radixq_expr(ret_MB_expr,(*SCALARS_LIST)[i]);   
+    trans_uint256_t_to_MB_radixq_expr(ret_MB_expr,SCALARS_ARRAY[i]);   
     }
     auto ed = std::chrono::steady_clock::now();   
     std::chrono::microseconds diff = std::chrono::duration_cast<std::chrono::microseconds>(ed -st); 
@@ -1051,15 +1222,77 @@ size_t pippenger_window_size(size_t npoints)
     return wbits>12 ? wbits-3 : (wbits>4 ? wbits-2 : (wbits ? 2 : 1));
 }
 
+/*
+ * Window value encoding that utilizes the fact that -P is trivially
+ * calculated, which allows to halve the size of pre-computed table,
+ * is attributed to A. D. Booth, hence the name of the subroutines...
+ */
+limb_t booth_encode(limb_t wval, size_t sz)
+{
+    limb_t mask = 0 - (wval >> sz);     /* "sign" bit -> mask */
+
+    wval = (wval + 1) >> 1;
+    wval = (wval & ~mask) | ((0-wval) & mask);
+
+    /* &0x1f, but <=0x10, is index in table, rest is extended "sign" bit */
+    return wval;
+}
+
+
+/* Works up to 25 bits. */
+limb_t get_wval_limb(const byte *d, size_t off, size_t bits)
+{
+    size_t i, top = (off + bits - 1)/8;
+    limb_t ret, mask = (limb_t)0 - 1;
+
+    d   += off/8;
+    top -= off/8-1;
+
+    /* this is not about constant-time-ness, but branch optimization */
+    for (ret=0, i=0; i<4;) {
+        ret |= (*d & mask) << (8*i);
+        mask = (limb_t)0 - ((++i - top) >> (8*sizeof(top)-1));
+        d += 1 & mask;
+    }
+
+    return ret >> (off%8);
+}
+
+void test_xyzz(){
+    std::cout << " test_xyzz() " << std::endl;
+    blst_p1_affine P = *blst_p1_affine_generator();
+    blst_p1 Q = *blst_p1_generator();
+    blst_p1 ret = Q;
+    blst_p1_affine reta;
+    blst_p1 ret2 = Q;
+    blst_p1_affine ret2a;
+
+    unsigned char booth_sign = 0; // if booth_sign == 1, it is a subtraction.
+    blst_p1xyzz Pxyzz = { 0 , 1, 0, 0};
+    blst_p1xyzz_dadd_affine(&Pxyzz, &Pxyzz, &P, booth_sign);
+    blst_p1_to_affine(&reta, &ret);
+
+    blst_p1_add_or_double(&ret2, &Q, &Q);
+    blst_p1_to_affine(&ret2a, &ret2);
+
+    std::cout << Pxyzz.x << std::endl;
+    std::cout << Pxyzz.y << std::endl;
+    std::cout << Pxyzz.zzz << std::endl;
+    std::cout << Pxyzz.zz << std::endl;
+
+    std::cout << P.x << std::endl;
+    std::cout << P.y << std::endl;
+}
+
 int main(){
 
 
     init();
-    init_PRECOMPUTATION_POINTS_LIST_6nh();
-    
+
+    init_PRECOMPUTATION_POINTS_LIST_nh();
     test();
 
-    test_scalar_conversion_bench();
+    // test_scalar_conversion_bench();
     // test_three_scalar_multiplication_methods();// Correct!
 
 
@@ -1079,8 +1312,32 @@ int main(){
     std::cout << ret.y << std::endl;
     std::cout << ret.z << std::endl;
 
-    for(int e = 10; e<= 30; ++e)
-    std::cout << std::dec << e<< "  "<< pippenger_window_size( (size_t) (1<< e) -8) << std::endl;
+    // for(int e = 10; e<= 30; ++e)
+    // std::cout << std::dec << e<< "  "<< pippenger_window_size( (size_t) (1<< e) -8) << std::endl;
+
+    // byte ret1[4];
+    // uint a = 0x12343a79;
+    // byte_str_from_uint32( ret1, a);
+
+    // std::cout << ret1[0] << " "<< ret1[1] << " "<< ret1[2] << " "<< ret1[3] << " "<<std::endl;
+    // std::cout << "booth_encode test" << std::endl;
+    // for(int i = 0; i< 20; ++i){
+    //    std::cout << i << " " << booth_encode(i, 4) << std::endl;
+    // }
+
+    // std::cout << "get_wval_limb test" << std::endl;
+    // for(int i = 0; i< (1<<13); ++i){
+    //     uint8_t d[4];
+    //     byte_str_from_uint32( d, (uint32_t) i);
+    //     limb_t wval = (get_wval_limb(d, 0 , 13) << 1);
+    //    std::cout << i << " " << wval << std::endl;
+
+    // //    booth_encode(wval, 13)
+    // }
+    // test_xyzz();
+
+    // int nn = 4;
+    // while(nn) std::cout <<  SCALARS_ARRAY[nn--] << std::endl; 
 
     return 0;
 }

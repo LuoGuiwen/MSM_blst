@@ -69,48 +69,48 @@ private:
 #ifdef SWIG
 public:
 #endif
-    // void keygen(const byte* IKM, size_t IKM_len,
-    //             const std::string& info = "")
-    // {   blst_keygen(&key, IKM, IKM_len, C_bytes(info.data()), info.size());   }
-    // void keygen_v3(const byte* IKM, size_t IKM_len,
-    //                const std::string& info = "")
-//     {   blst_keygen_v3(&key, IKM, IKM_len, C_bytes(info.data()), info.size());   }
-//     void keygen_v4_5(const byte* IKM, size_t IKM_len,
-//                      const byte* salt, size_t salt_len,
-//                      const std::string& info = "")
-//     {   blst_keygen_v4_5(&key, IKM, IKM_len, salt, salt_len,
-//                                C_bytes(info.data()), info.size());
-//     }
-//     void keygen_v5(const byte* IKM, size_t IKM_len,
-//                    const byte* salt, size_t salt_len,
-//                    const std::string& info = "")
-//     {   blst_keygen_v5(&key, IKM, IKM_len, salt, salt_len,
-//                              C_bytes(info.data()), info.size());
-//     }
-// #if __cplusplus >= 201703L
-//     void keygen(const app__string_view IKM, // string_view by value, cool!
-//                 const std::string& info = "")
-//     {   keygen(C_bytes(IKM.data()), IKM.size(), info);   }
-//     void keygen_v3(const app__string_view IKM, // string_view by value, cool!
-//                    const std::string& info = "")
-//     {   keygen_v3(C_bytes(IKM.data()), IKM.size(), info);   }
-//     void keygen_v4_5(const app__string_view IKM, // string_view by value, cool!
-//                      const app__string_view salt,
-//                      const std::string& info = "")
-//     {   keygen_v4_5(C_bytes(IKM.data()), IKM.size(),
-//                     C_bytes(salt.data()), salt.size(), info);
-//     }
-//     void keygen_v5(const app__string_view IKM, // string_view by value, cool!
-//                    const app__string_view salt,
-//                    const std::string& info = "")
-//     {   keygen_v5(C_bytes(IKM.data()), IKM.size(),
-//                   C_bytes(salt.data()), salt.size(), info);
-//     }
-// #endif
-//     void derive_master_eip2333(const byte* IKM, size_t IKM_len)
-//     {   blst_derive_master_eip2333(&key, IKM, IKM_len);   }
-//     void derive_child_eip2333(const SecretKey& SK, unsigned int child_index)
-//     {   blst_derive_child_eip2333(&key, &SK.key, child_index);   }
+    void keygen(const byte* IKM, size_t IKM_len,
+                const std::string& info = "")
+    {   blst_keygen(&key, IKM, IKM_len, C_bytes(info.data()), info.size());   }
+    void keygen_v3(const byte* IKM, size_t IKM_len,
+                   const std::string& info = "")
+    {   blst_keygen_v3(&key, IKM, IKM_len, C_bytes(info.data()), info.size());   }
+    void keygen_v4_5(const byte* IKM, size_t IKM_len,
+                     const byte* salt, size_t salt_len,
+                     const std::string& info = "")
+    {   blst_keygen_v4_5(&key, IKM, IKM_len, salt, salt_len,
+                               C_bytes(info.data()), info.size());
+    }
+    void keygen_v5(const byte* IKM, size_t IKM_len,
+                   const byte* salt, size_t salt_len,
+                   const std::string& info = "")
+    {   blst_keygen_v5(&key, IKM, IKM_len, salt, salt_len,
+                             C_bytes(info.data()), info.size());
+    }
+#if __cplusplus >= 201703L
+    void keygen(const app__string_view IKM, // string_view by value, cool!
+                const std::string& info = "")
+    {   keygen(C_bytes(IKM.data()), IKM.size(), info);   }
+    void keygen_v3(const app__string_view IKM, // string_view by value, cool!
+                   const std::string& info = "")
+    {   keygen_v3(C_bytes(IKM.data()), IKM.size(), info);   }
+    void keygen_v4_5(const app__string_view IKM, // string_view by value, cool!
+                     const app__string_view salt,
+                     const std::string& info = "")
+    {   keygen_v4_5(C_bytes(IKM.data()), IKM.size(),
+                    C_bytes(salt.data()), salt.size(), info);
+    }
+    void keygen_v5(const app__string_view IKM, // string_view by value, cool!
+                   const app__string_view salt,
+                   const std::string& info = "")
+    {   keygen_v5(C_bytes(IKM.data()), IKM.size(),
+                  C_bytes(salt.data()), salt.size(), info);
+    }
+#endif
+    void derive_master_eip2333(const byte* IKM, size_t IKM_len)
+    {   blst_derive_master_eip2333(&key, IKM, IKM_len);   }
+    void derive_child_eip2333(const SecretKey& SK, unsigned int child_index)
+    {   blst_derive_child_eip2333(&key, &SK.key, child_index);   }
 
     void from_bendian(const byte in[32]) { blst_scalar_from_bendian(&key, in); }
     void from_lendian(const byte in[32]) { blst_scalar_from_lendian(&key, in); }
@@ -129,24 +129,24 @@ public:
     Scalar() { memset(&val, 0, sizeof(val)); }
     Scalar(const byte* scalar, size_t nbits)
     {   blst_scalar_from_le_bytes(&val, scalar, (nbits+7)/8);   }
-    // Scalar(const byte *msg, size_t msg_len, const std::string& DST)
-    // {   (void)hash_to(msg, msg_len, DST);   }
-// #if __cplusplus >= 201703L
-//     Scalar(const app__string_view msg, const std::string& DST = "")
-//     {   (void)hash_to(C_bytes(msg.data()), msg.size(), DST);   }
-// #endif
+    Scalar(const byte *msg, size_t msg_len, const std::string& DST)
+    {   (void)hash_to(msg, msg_len, DST);   }
+#if __cplusplus >= 201703L
+    Scalar(const app__string_view msg, const std::string& DST = "")
+    {   (void)hash_to(C_bytes(msg.data()), msg.size(), DST);   }
+#endif
 
-    // Scalar* hash_to(const byte *msg, size_t msg_len, const std::string& DST = "")
-    // {   byte elem[48];
-    //     blst_expand_message_xmd(elem, sizeof(elem), msg, msg_len,
-    //                                                 C_bytes(DST.data()), DST.size());
-    //     blst_scalar_from_be_bytes(&val, elem, sizeof(elem));
-    //     return this;
-    // }
-// #if __cplusplus >= 201703L
-//     Scalar* hash_to(const app__string_view msg, const std::string& DST = "")
-//     {   return hash_to(C_bytes(msg.data()), msg.size(), DST);   }
-// #endif
+    Scalar* hash_to(const byte *msg, size_t msg_len, const std::string& DST = "")
+    {   byte elem[48];
+        blst_expand_message_xmd(elem, sizeof(elem), msg, msg_len,
+                                                    C_bytes(DST.data()), DST.size());
+        blst_scalar_from_be_bytes(&val, elem, sizeof(elem));
+        return this;
+    }
+#if __cplusplus >= 201703L
+    Scalar* hash_to(const app__string_view msg, const std::string& DST = "")
+    {   return hash_to(C_bytes(msg.data()), msg.size(), DST);   }
+#endif
 
     Scalar dup() const { return *this; }
     Scalar* from_bendian(const byte *msg, size_t msg_len)
@@ -189,12 +189,11 @@ private:
 };
 
 class P1_Affine {
-// private:
-public:
+private:
     blst_p1_affine point;
 
     P1_Affine(const blst_p1_affine *cptr) { point = *cptr; }
-
+public:
     P1_Affine() { memset(&point, 0, sizeof(point)); }
 #ifndef SWIG
     P1_Affine(const byte *in)
@@ -247,13 +246,11 @@ private:
 };
 
 class P1 {
-// private: //Guiwen change the data to public 
-
-public:
+private:
     blst_p1 point;
 
     P1(const blst_p1 *cptr) { point = *cptr; }
-
+public:
     P1() { memset(&point, 0, sizeof(point)); }
     P1(const SecretKey& sk) { blst_sk_to_pk_in_g1(&point, &sk.key); }
 #ifndef SWIG
@@ -354,8 +351,7 @@ private:
 };
 
 class P1_Affines {
-// private:
-public:
+private:
     struct p1_affine_no_init {
         blst_p1_affine point;
         p1_affine_no_init() { }
@@ -366,8 +362,8 @@ public:
     std::vector<p1_affine_no_init> table;
     size_t wbits, npoints;
 
-
-// #ifndef SWIG
+public:
+#ifndef SWIG
     P1_Affines() {}
     P1_Affines(size_t wbits, const P1_Affine* const points[], size_t npoints)
     {   this->wbits = wbits;
@@ -450,7 +446,7 @@ public:
     }
     static std::vector<P1_Affine> from(std::vector<P1> points)
     {   return from(&points[0], points.size());   }
-// #endif
+#endif
 
     static P1 mult_pippenger(const P1_Affine* const points[], size_t npoints,
                              const byte* const scalars[], size_t nbits)
@@ -463,7 +459,7 @@ public:
         delete[] scratch;
         return ret;
     }
-// #ifndef SWIG
+#ifndef SWIG
     static P1 mult_pippenger(const P1_Affine points[], size_t npoints,
                              const byte* const scalars[], size_t nbits)
     {   const P1_Affine* const ptrs[2] = { points, nullptr };
@@ -472,7 +468,7 @@ public:
     static P1 mult_pippenger(const std::vector<P1_Affine> points,
                              const byte* const scalars[], size_t nbits)
     {   return mult_pippenger(&points[0], points.size(), scalars, nbits);   }
-// #endif
+#endif
 
     static P1 add(const P1_Affine* const points[], size_t npoints)
     {   P1 ret;
@@ -863,8 +859,8 @@ public:
     PT* mul(const PT& p)    { blst_fp12_mul(&value, &value, p); return this; }
     PT* final_exp()         { blst_final_exp(&value, &value);   return this; }
     bool in_group() const   { return blst_fp12_in_group(&value); }
-    // void to_bendian(byte out[48*12]) const
-    // {   blst_bendian_from_fp12(out, &value);   }
+    void to_bendian(byte out[48*12]) const
+    {   blst_bendian_from_fp12(out, &value);   }
 
     static bool finalverify(const PT& gt1, const PT& gt2)
     {   return blst_fp12_finalverify(gt1, gt2);   }
@@ -973,10 +969,10 @@ public:
     {   return sig == nullptr ? blst_pairing_finalverify(*this, nullptr)
                               : blst_pairing_finalverify(*this, *sig);
     }
-    // void raw_aggregate(const P2_Affine* q, const P1_Affine* p)
-    // {   blst_pairing_raw_aggregate(*this, *q, *p);   }
-    // PT as_fp12()
-    // {   return PT(blst_pairing_as_fp12(*this));   }
+    void raw_aggregate(const P2_Affine* q, const P1_Affine* p)
+    {   blst_pairing_raw_aggregate(*this, *q, *p);   }
+    PT as_fp12()
+    {   return PT(blst_pairing_as_fp12(*this));   }
 };
 
 } // namespace blst

@@ -379,7 +379,6 @@ void blst_p1_double(POINTonE1 *out, const POINTonE1 *a)
 int blst_p1_is_equal(const POINTonE1 *a, const POINTonE1 *b)
 {   return (int)POINTonE1_is_equal(a, b);   }
 
-
 #include "ec_mult.h"
 POINT_MULT_SCALAR_WX_IMPL(POINTonE1, 4)
 POINT_MULT_SCALAR_WX_IMPL(POINTonE1, 5)

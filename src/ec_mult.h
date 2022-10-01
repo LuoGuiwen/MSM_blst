@@ -20,7 +20,7 @@ static limb_t get_wval(const byte *d, size_t off, size_t bits)
 }
 
 /* Works up to 25 bits. */
-static limb_t get_wval_limb(const byte *d, size_t off, size_t bits)  //Guiwen. on my macbook pro 2018, both size_t and limb_t are 64 bit
+static limb_t get_wval_limb(const byte *d, size_t off, size_t bits)
 {
     size_t i, top = (off + bits - 1)/8;
     limb_t ret, mask = (limb_t)0 - 1;
