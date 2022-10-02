@@ -434,6 +434,11 @@ void prefix##xyzz_to_Jacobian(ptype *out, const ptype##xyzz *in)\
 {\
     ptype##xyzz_to_Jacobian(out, in);\
 }\
+void prefix##_to_xyzz(ptype##xyzz *out, ptype *in)\
+{\
+    ptype##_to_xyzz(out, in);\
+}\
+\
 \
 void prefix##xyzz_dadd(ptype##xyzz *p3, const ptype##xyzz *p1, \
                                               const ptype##xyzz *p2)\

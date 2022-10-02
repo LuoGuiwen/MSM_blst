@@ -266,6 +266,8 @@ void blst_p1xyzz_dadd(blst_p1xyzz *p3, const blst_p1xyzz *p1, \
 void blst_p1xyzz_to_Jacobian(blst_p1 *out, const blst_p1xyzz *in);
 
 void blst_p1_prefetch(const blst_p1xyzz buckets[], size_t booth_idx);
+
+void blst_p1_to_xyzz(blst_p1xyzz *out, blst_p1 *in);
                 
 
 

@@ -24,247 +24,17 @@ All functions must be invoked after init().
 #include <set>
 #include <array>
 
-
 // using namespace std; // don't use this line, since there is a uint_8 and byte definition that are not compatible with std.
 
-/* 
-Define 256 bit scalar with shift operations Guiwen, 
-WARNING: shift should be no more than 32 !!! 
-*/
-
-class uint256_t {
-    public:
-
-    uint32_t data[8]; // the scalar is equal to data[0] + data[1]<< 32 + data[2] << 64 + ...
-    
-    constexpr uint256_t(const uint32_t a = 0)
-        : data{ a, 0, 0, 0, 0, 0, 0, 0 }
-    {}
-
-    constexpr uint256_t(const uint32_t a0, const uint32_t a1, const uint32_t a2, const uint32_t a3, const uint32_t a4, const uint32_t a5, const uint32_t a6, const uint32_t a7)
-        :data{a0, a1, a2, a3, a4, a5, a6, a7}
-    {}
-
-    constexpr uint256_t(const uint256_t& other)
-        : data{ other.data[0], other.data[1], other.data[2], other.data[3], other.data[4], other.data[5], other.data[6], other.data[7] }
-    {}
-
-    constexpr uint256_t& operator=(const uint256_t& other) = default;
-    explicit constexpr operator bool() const { return static_cast<bool>(data[0]); };
-
-    // define right shift operation
-    constexpr uint256_t operator>>(const uint32_t & total_shift) const // total_shift <= 31, because our radix is no more than 2**31
-    {
-        if (total_shift == 0) {
-            return *this;
-        }
-
-        uint32_t limb_shift = total_shift;
-
-        uint32_t shifted_limbs[8] = { 0 };
-
-        uint32_t remainder_shift = 32UL - limb_shift;
-
-        shifted_limbs[7] = data[7] >> limb_shift;
-
-        uint32_t remainder = (data[7]) << remainder_shift; // elegant !!!!
-
-        shifted_limbs[6] = (data[6] >> limb_shift) + remainder;
-
-        remainder = (data[6]) << remainder_shift;
-
-        shifted_limbs[5] = (data[5] >> limb_shift) + remainder;
-
-        remainder = (data[5]) << remainder_shift;
-
-        shifted_limbs[4] = (data[4] >> limb_shift) + remainder;
-
-        remainder = (data[4]) << remainder_shift;
-
-        shifted_limbs[3] = (data[3] >> limb_shift) + remainder;
-        
-        remainder = (data[3]) << remainder_shift;
-
-        shifted_limbs[2] = (data[2] >> limb_shift) + remainder;
-        
-        remainder = (data[2]) << remainder_shift;
-
-        shifted_limbs[1] = (data[1] >> limb_shift) + remainder;
-        
-        remainder = (data[1]) << remainder_shift;
-
-        shifted_limbs[0] = (data[0] >> limb_shift) + remainder;
-        
-        uint256_t result(0);
-
-        for (int i = 0; i < 8; ++i) {
-            result.data[i] = shifted_limbs[i];
-        }
-
-        return result;
-    };
-
-    // define left shift operation
-    constexpr uint256_t operator<<(const uint32_t & total_shift) const // total_shift <= 31, because our radix is no more than 2**31
-    {
-        if (total_shift == 0) {
-            return *this;
-        }
-
-        uint32_t limb_shift = total_shift;
-
-        uint32_t shifted_limbs[8] = { 0 };
-
-        uint32_t remainder_shift = 32UL - limb_shift;
-
-        shifted_limbs[0] = data[0] << limb_shift;
-
-        uint32_t remainder = (data[0]) >> remainder_shift; // elegant !!!!
-
-        shifted_limbs[1] = (data[1] << limb_shift) + remainder;
-
-        remainder = (data[1]) >> remainder_shift;
-
-        shifted_limbs[2] = (data[2] << limb_shift) + remainder;
-
-        remainder = (data[2]) >> remainder_shift;
-
-        shifted_limbs[3] = (data[3] << limb_shift) + remainder;
-
-        remainder = (data[3]) >> remainder_shift;
-
-        shifted_limbs[4] = (data[4] << limb_shift) + remainder;
-
-        remainder = (data[4]) >> remainder_shift;
-       
-        shifted_limbs[5] = (data[5] << limb_shift) + remainder;
-
-        remainder = (data[5]) >> remainder_shift;
-
-        shifted_limbs[6] = (data[6] << limb_shift) + remainder;
-
-        remainder = (data[6]) >> remainder_shift;
-
-        shifted_limbs[7] = (data[7] << limb_shift) + remainder;
-        
-        uint256_t result(0);
-
-        for (int i = 0; i < 8; ++i) {
-            result.data[i] = shifted_limbs[i];
-        }
-
-        return result;
-    };
-
-    // define addition with a uint256_t.
-
-    // compute a + b + carry, returning the carry
-    constexpr std::pair<uint32_t, uint32_t> addc(const uint32_t a,
-                                                        const uint32_t b,
-                                                        const uint32_t carry_in) const
-    {
-        const uint32_t sum = a + b;
-        const uint32_t carry_temp = sum < a;
-        const uint32_t r = sum + carry_in;
-        const uint32_t carry_out = carry_temp + (r < carry_in);
-        return { r, carry_out };
-    };
-
-    constexpr uint32_t addc_discard_hi(const uint32_t a, const uint32_t b, const uint32_t carry_in) const
-    {
-        return a + b + carry_in;
-    };
-
-    constexpr uint256_t operator+(const uint256_t& other) const
-    {
-        const auto [r0, t0] = addc(data[0], other.data[0], 0);
-        const auto [r1, t1] = addc(data[1], other.data[1], t0);
-        const auto [r2, t2] = addc(data[2], other.data[2], t1);
-        const auto [r3, t3] = addc(data[3], other.data[3], t2);
-        const auto [r4, t4] = addc(data[4], other.data[4], t3);
-        const auto [r5, t5] = addc(data[5], other.data[5], t4);
-        const auto [r6, t6] = addc(data[6], other.data[6], t5);
-
-        const auto r7 = addc_discard_hi(data[7], other.data[7], t6);
-        return { r0, r1, r2, r3, r4, r5, r6, r7};
-    };    
-
-    constexpr bool operator>(const uint256_t& other) const
-    {
-    bool t0 = data[7] > other.data[7];
-    bool t1 = data[7] == other.data[7] && data[6] > other.data[6];
-    bool t2 = data[7] == other.data[7] && data[6] == other.data[6] && data[5] > other.data[5];
-    bool t3 = data[7] == other.data[7] && data[6] == other.data[6] && data[5] == other.data[5] && data[4] > other.data[4];
-    bool t4 = data[7] == other.data[7] && data[6] == other.data[6] && data[5] == other.data[5] && data[4] == other.data[4] && data[3] > other.data[3];
-    bool t5 = data[7] == other.data[7] && data[6] == other.data[6] && data[5] == other.data[5] && data[4] == other.data[4] && data[3] == other.data[3] &&  data[2] > other.data[2];
-    bool t6 = data[7] == other.data[7] && data[6] == other.data[6] && data[5] == other.data[5] && data[4] == other.data[4] && data[3] == other.data[3] &&  data[2] == other.data[2]  &&  data[1] > other.data[1];
-    bool t7 = data[7] == other.data[7] && data[6] == other.data[6] && data[5] == other.data[5] && data[4] == other.data[4] && data[3] == other.data[3] &&  data[2] == other.data[2]  &&  data[1] == other.data[1]&&  data[0] > other.data[0];
-    return t0 || t1 || t2 || t3 || t4 || t5 || t6 || t7;
-    }
-};
-
-inline std::ostream& operator<<(std::ostream& os, uint256_t const& a)
-{
-    std::ios_base::fmtflags f(os.flags());
-    os  << std::hex << "0x" << std::setfill('0') << std::setw(8) << a.data[7] << std::setw(8) << a.data[6]
-        << std::setw(8) << a.data[5] << std::setw(8) << a.data[4] << std::setw(8) << a.data[3] << std::setw(8) << a.data[2]
-        << std::setw(8) << a.data[1] << std::setw(8) << a.data[0];
-    os.flags(f);
-    return os;
-}
-
-/* Define ostreams for other related class*/
-std::ostream& operator<<(std::ostream& os, const blst_fp& b)
-{
-    os << std::hex << "0x" << std::setfill('0') \
-    << std::setw(16) << b.l[5] << " "<< std::setw(16) << b.l[4]<<  " "<< std::setw(16) << b.l[3] << " "\
-    << std::setw(16) << b.l[2] <<" "<< std::setw(16) << b.l[1] <<" "<< std::setw(16) << b.l[0];
-    return os;
-}
-
-std::ostream& operator<<(std::ostream& os, const blst_fr& b)
-{
-    os << std::hex << b.l[3] << " "<< b.l[2]<<  " "<< b.l[1]<< " "<< b.l[0] <<" ";
-    return os;
-}
-
-std::ostream& operator<< (std::ostream& os, const uint8_t bt) {
-    return os << unsigned(bt);
-}
-
-std::ostream& operator<<(std::ostream& os, const blst_scalar& scalar)
-{
-    os << std::hex << "0x" << " " << std::setfill('0') \
-    << std::setw(2) << scalar.b[31] << " "<< std::setw(2) << scalar.b[30] << " " << std::setw(2) << scalar.b[29] << " "<< std::setw(2) <<scalar.b[28] <<" "\
-    << std::setw(2)  <<scalar.b[27] << " "<< std::setw(2) <<scalar.b[26] <<" "<< std::setw(2) <<scalar.b[25] << " " << std::setw(2) <<scalar.b[24] << ", " \
-    << std::setw(2) << scalar.b[23] << ' '<<std::setw(2) <<  scalar.b[22] << ' ' << std::setw(2) << scalar.b[21] << " "<< std::setw(2) << scalar.b[20] <<" "\
-    << std::setw(2) << scalar.b[19] << " "<< std::setw(2) << scalar.b[18] <<" "<< std::setw(2) << scalar.b[17] << " " << std::setw(2) << scalar.b[16] << ", " \
-    << std::setw(2) << scalar.b[15] << ' '<< std::setw(2) << scalar.b[14] << ' ' << std::setw(2) << scalar.b[13] << " "<< std::setw(2) << scalar.b[12] <<" "\
-    << std::setw(2) << scalar.b[11] << " "<< std::setw(2) << scalar.b[10] <<" "<< std::setw(2) << scalar.b[9] << " " << std::setw(2) << scalar.b[8] << ", " \
-    << std::setw(2) << scalar.b[7] << ' '<< std::setw(2) << scalar.b[6] << ' ' << std::setw(2) << scalar.b[5] << " "<< std::setw(2) << scalar.b[4] <<" "\
-    << std::setw(2) << scalar.b[3] << " "<< std::setw(2) << scalar.b[2] <<" "<< std::setw(2) << scalar.b[1] << " " << std::setw(2) << scalar.b[0] << " ";
-    return os;
-}
-
-std::ostream& operator<<(std::ostream& os, const uint64_t* b)
-{
-    os << std::hex << b[3] << " "<< b[2]<<  " "<< b[1]<< " "<< b[0] <<" ";
-    return os;
-}
 
 /***----***/
 /* Define global variables and their initialization*/
 /***----***/
 
-const size_t N_POINTS = (size_t) (1 << 18);  
-const blst_p1 G1_BLST_DEFAULT_GENERATOR = *blst_p1_generator(); // Default generator in blst_p1
-const int EXPONENT_OF_q = 20;
-const int q_RADIX = (int) (1 << EXPONENT_OF_q);
-const int h_LEN_SCALAR = 13;
-const int ah_LEADING = 29677;
-const int d_MAX_DIFF = 60;
-const int B_size = 220931;
-#include "bucket_set_20.h" //define bucket_set in a seperate file.
+
+#include "config_radix13.h" //define configuration in a seperate file.
+#include "auxiliaryfunc.h"
+
 // std::set<int> BUCKET_SET;
 std::vector<int> BUCKET_SET_ASCEND_VEC;
 std::set<int> MULTI_SET = {1, 2, 3};
@@ -289,59 +59,6 @@ blst_fp FP_ONE, FP_MONT_ONE, FP_Z;
 
 blst_p1 G1_GENERATOR, G1_INFINITY; 
 blst_p1_affine G1_GENERATOR_AFFINE, G1_AFFINE_INFINITY; 
-
-
-
-/*
-Functions
-*/
-
-
-uint256_t random_scalar_less_than_r(){
-    uint256_t ret;
-    ret.data[7] = uint32_t(rand() % (0x73eda753)); // make sure the scalar is less than r.
-    ret.data[6] = uint32_t(rand());
-    ret.data[5] = uint32_t(rand());
-    ret.data[4] = uint32_t(rand());
-    ret.data[3] = uint32_t(rand());
-    ret.data[2] = uint32_t(rand());
-    ret.data[1] = uint32_t(rand());
-    ret.data[0] = uint32_t(rand());
-
-    return ret;
-}
-
-
-// uint256_t random_scalar_less_than_r(){
-
-//     uint256_t ret;
-//     auto seed = time(NULL);
-//     srand((unsigned) seed);
-//     ret.data[7] = uint32_t(rand() % (0x73eda753)); // make sure the scalar is less than r.
-
-//     srand((unsigned) seed+1);
-//     ret.data[6] = uint32_t(rand());
-
-//     srand((unsigned) seed+2);
-//     ret.data[5] = uint32_t(rand());
-
-//     srand((unsigned) seed+3);
-//     ret.data[4] = uint32_t(rand());
-
-//     srand((unsigned) seed+4);
-//     ret.data[3] = uint32_t(rand());
-
-//     srand((unsigned) seed+5);
-//     ret.data[2] = uint32_t(rand());
-
-//     srand((unsigned) seed+6);
-//     ret.data[1] = uint32_t(rand());
-
-//     srand((unsigned) seed+7);
-//     ret.data[0] = uint32_t(rand());
-
-//     return ret;
-// }
 
 typedef std::array<std::array< int, 2>, h_LEN_SCALAR> scalar_MB_expr;
 void print( const scalar_MB_expr &expr){
@@ -458,12 +175,9 @@ void init(){
     //Initialize BUCKET_SET
 
     // BUCKET_SET = construct_bucket_set(q_RADIX, ah_LEADING);
-    // std::copy(BUCKET_SET.begin(), BUCKET_SET.end(), std::back_inserter(BUCKET_SET_ASCEND_VEC));
-    // std::cout<< "BUCKET_SET initialized. The size of BUCKET_SET is: " << BUCKET_SET.size() << std::endl;
-    std::cout<< "BUCKET_SET directly read from file. The size of BUCKET_SET is: " << B_size << std::endl;
+    std::cout<< "BUCKET_SET directly read from file. The size of BUCKET_SET is: " << B_SIZE << std::endl;
 
-    for(size_t i = 0; i < B_size; ++i){
-        BUCKET_SET_ASCEND_VEC.insert(BUCKET_SET_ASCEND_VEC.begin()+i,  BUCKET_SET[i]);
+    for(size_t i = 0; i < B_SIZE; ++i){
         BUCKET_VALUE_TO_ITS_INDEX[BUCKET_SET[i]] = i;
     }
     
@@ -501,12 +215,9 @@ void init(){
 
     // Initialize SCALARS_ARRAY
     SCALARS_ARRAY = new uint256_t[N_POINTS];
-        for(size_t i = 0; i < N_POINTS; ++i){
-            SCALARS_ARRAY[i] = random_scalar_less_than_r();
-         }
-      std::cout<< "SCALARS_ARRAY Generated" <<std::endl;
-
-
+    for(size_t i = 0; i < N_POINTS; ++i)\
+        SCALARS_ARRAY[i] = random_scalar_less_than_r();
+    std::cout<< "SCALARS_ARRAY Generated" <<std::endl;
 }
 
 
@@ -591,10 +302,6 @@ void init_PRECOMPUTATION_POINTS_LIST_nh(){
     PRECOMPUTATION_POINTS_LIST_nh   = new std::array< std::array< blst_p1_affine, h_LEN_SCALAR >, N_POINTS>;
     PRECOMPUTATION_POINTS_LIST_nh_2 = new std::array< std::array< blst_p1_affine, h_LEN_SCALAR >, N_POINTS>;
     PRECOMPUTATION_POINTS_LIST_nh_3 = new std::array< std::array< blst_p1_affine, h_LEN_SCALAR >, N_POINTS>;
-    // PRECOMPUTATION_POINTS_LIST_nh_n1 = new std::array< std::array< blst_p1_affine, h_LEN_SCALAR >, N_POINTS>;
-    // PRECOMPUTATION_POINTS_LIST_nh_n2 = new std::array< std::array< blst_p1_affine, h_LEN_SCALAR >, N_POINTS>;
-    // PRECOMPUTATION_POINTS_LIST_nh_n3 = new std::array< std::array< blst_p1_affine, h_LEN_SCALAR >, N_POINTS>;
-
 
     auto st = std::chrono::steady_clock::now();
     blst_p1_affine Pt;
@@ -749,18 +456,15 @@ blst_p1 accumulation_consecutive( const std::vector<int> & consecutiveBucketSetL
 
 
 //
-blst_p1 accumulation_d(std::vector<int> bucketSetList, const std::vector<blst_p1>& intermediateSumList, const int d_max){
-    if (B_size!= intermediateSumList.size()){
-        std::cout << "ERROR: lengths do not match" <<std::endl;
-        return intermediateSumList[0];
-    }
+blst_p1 accumulation_d(int bucketSetList[], const std::vector<blst_p1>& intermediateSumList, const size_t bucket_set_size, const int d_max){
+
     blst_p1 tmp = G1_INFINITY;
 
     //# We don't use the tmp_d[0]
     std::vector<blst_p1> tmp_d (d_max + 1,  G1_INFINITY); 
     // for(uint i = 0; i<= max_d; ++i) tmp_d.push_back(tmp); // those two initializations are equivalent
 
-    for( auto i = B_size -1; i>0; --i){
+    for( auto i = bucket_set_size -1; i>0; --i){
         blst_p1_add_or_double(&tmp, &tmp, &(intermediateSumList[i]));
         int differ = bucketSetList[i] -  bucketSetList[i-1];
         blst_p1_add_or_double(&(tmp_d[differ]), &(tmp_d[differ]), &tmp);
@@ -778,72 +482,16 @@ blst_p1 accumulation_d(std::vector<int> bucketSetList, const std::vector<blst_p1
     return tmp1;    
 }
 
-blst_p1_affine pippenger_variant_submission_CHES(){
-    
-    std::cout <<"pippenger_variant_submission_CHES() with accumulation_d" << std::endl;
-
-    blst_p1_affine tmp_Pa = G1_AFFINE_INFINITY;
-    blst_p1 tmp_P = G1_INFINITY;
-
-    std::vector<blst_p1> intermediate_sum_list (BUCKET_SET_ASCEND_VEC.size(), G1_INFINITY); 
-
-    std::array<std::array< int, 2>, h_LEN_SCALAR> ret_MB_expr;
-   
-    for(int i = 0; i< N_POINTS; ++i){
-
-        trans_uint256_t_to_MB_radixq_expr(ret_MB_expr, SCALARS_ARRAY[i]);
-
-        for(int j = 0; j< h_LEN_SCALAR; ++j){
-
-            int m = ret_MB_expr[j][0];
-            int b = ret_MB_expr[j][1];
-            int index_b = BUCKET_VALUE_TO_ITS_INDEX[b];
-
-            if (m>= 0) {
-                tmp_Pa = (*PRECOMPUTATION_POINTS_LIST_nh)[i][j];
-            }
-            else{
-                tmp_Pa = (*PRECOMPUTATION_POINTS_LIST_nh)[i][j];
-                blst_fp_sub(&tmp_Pa.y, &FP_Z, &tmp_Pa.y);
-            }
-           
-            blst_p1_from_affine(&tmp_P, &tmp_Pa);
-            blst_p1_add_or_double(&(intermediate_sum_list[index_b]), &(intermediate_sum_list[index_b]), &tmp_P);
-        }
-    }
-    auto res = accumulation_d(BUCKET_SET_ASCEND_VEC, intermediate_sum_list, d_MAX_DIFF);
-    blst_p1_affine res_affine;
-    blst_p1_to_affine( &res_affine, &res);
-
-    return res_affine;
-}
-
-void byte_str_from_uint32(uint8_t ret[4], const uint32_t a)
-{
-    uint32_t w = a;
-    ret[0] = (byte)w;
-    ret[1] = (byte)(w >> 8);
-    ret[2] = (byte)(w >> 16);
-    ret[3] = (byte)(w >> 24);
-}
 
 
-void vec_zero(void *ret, size_t num)
-{
-    volatile limb_t *rp = (volatile limb_t *)ret;
-    size_t i;
 
-    num /= sizeof(limb_t);
-
-    for (i = 0; i < num; i++)
-        rp[i] = 0;
-}
 
  /* Calculate sum of bucket_set_ascend[i]*buckets[i] for i=0 to i= bucket_set_size - 1. 0 is in bucket_set */\
-void blst_p1_integrate_buckets(blst_p1 *out, blst_p1xyzz buckets[], int bucket_set_ascend[], size_t bucket_set_size){
+void blst_p1_integrate_buckets(blst_p1 *out, blst_p1xyzz buckets[], int bucket_set_ascend[], size_t bucket_set_size, int d_max){
     
-    blst_p1xyzz tmp, tmp1, tmp_d[d_MAX_DIFF];
-    vec_zero(tmp_d, sizeof(tmp_d[0])*d_MAX_DIFF);
+    blst_p1xyzz tmp, tmp1, tmp_d[d_max+1];
+    vec_zero(&tmp, sizeof(tmp));
+    vec_zero(tmp_d, sizeof(tmp_d[0])*(d_max+1));
     for(size_t i = bucket_set_size -1; i> 0; --i){
         blst_p1xyzz_dadd(&tmp, &tmp, &buckets[i]);
         int differ =  bucket_set_ascend[i] -  bucket_set_ascend[i-1];
@@ -860,6 +508,62 @@ void blst_p1_integrate_buckets(blst_p1 *out, blst_p1xyzz buckets[], int bucket_s
 
     blst_p1xyzz_to_Jacobian(out, &tmp1); 
 }
+
+/*Correctness has been verified*/
+blst_p1_affine pippenger_variant_submission_CHES(){
+    
+    std::cout <<"pippenger_variant_submission_CHES() with accumulation_d" << std::endl;
+
+    blst_p1xyzz* buckets;
+    buckets = new blst_p1xyzz [B_SIZE];
+    vec_zero(buckets, sizeof(buckets[0])*B_SIZE); 
+  
+
+    std::array<std::array< int, 2>, h_LEN_SCALAR> ret_MB_expr;
+   
+    for(int i = 0; i< N_POINTS; ++i){
+
+        trans_uint256_t_to_MB_radixq_expr(ret_MB_expr, SCALARS_ARRAY[i]);
+
+        for(int j = 0; j< h_LEN_SCALAR; ++j){
+
+            int m = ret_MB_expr[j][0];
+            int b = ret_MB_expr[j][1];
+            int booth_idx = BUCKET_VALUE_TO_ITS_INDEX[b];
+            unsigned char booth_sign;
+            blst_p1_affine tmp_Pa;
+
+            if (m> 0) {
+                tmp_Pa = (m == 1)? (*PRECOMPUTATION_POINTS_LIST_nh)[i][j]: \
+                ((m==2)? (*PRECOMPUTATION_POINTS_LIST_nh_2)[i][j]:\
+                (*PRECOMPUTATION_POINTS_LIST_nh_3)[i][j]);
+                booth_sign = 0;
+            }
+            else{
+                tmp_Pa = (m == -1)? (*PRECOMPUTATION_POINTS_LIST_nh)[i][j]: \
+                ((m==-2)? (*PRECOMPUTATION_POINTS_LIST_nh_2)[i][j]:\
+                (*PRECOMPUTATION_POINTS_LIST_nh_3)[i][j]);
+                booth_sign = 1;
+            }
+            blst_p1xyzz_dadd_affine(&buckets[booth_idx], &buckets[booth_idx], &tmp_Pa, booth_sign);
+        
+        }
+    }
+    
+    blst_p1 ret;
+    blst_p1_affine res_affine;
+
+    blst_p1_integrate_buckets(&ret, buckets, BUCKET_SET, B_SIZE, d_MAX_DIFF);
+    blst_p1_to_affine( &res_affine, &ret);
+
+    delete[] buckets;
+
+    return res_affine;
+}
+
+
+
+
 
 void blst_p1_bucket_CHES(blst_p1xyzz buckets[], int booth_idx, unsigned char booth_sign, const blst_p1_affine *p){
     if(booth_idx)blst_p1xyzz_dadd_affine(&buckets[booth_idx], &buckets[booth_idx], p, booth_sign);
@@ -898,7 +602,7 @@ void blst_p1_tile_pippenger_CHES_q_over_5(blst_p1 *ret, \
     point = *points ? *points++ : point+1; 
     booth_sign = *booth_signs;
     blst_p1_bucket_CHES(buckets, booth_idx, booth_sign, point);
-    blst_p1_integrate_buckets(ret, buckets, bucket_set_ascend, bucket_set_size);
+    blst_p1_integrate_buckets(ret, buckets, bucket_set_ascend, bucket_set_size, d_MAX_DIFF);
 
 }
 
@@ -915,7 +619,7 @@ blst_p1_affine pippenger_variant_submission_CHES_blst_tile(){
 
     int* scalars;
     scalars = new int [npoints];
-    unsigned char* booth_signs;
+    unsigned char* booth_signs; // it acts as a bool type
     booth_signs = new unsigned char [npoints];
 
     blst_p1_affine** points_ptr;
@@ -947,9 +651,9 @@ blst_p1_affine pippenger_variant_submission_CHES_blst_tile(){
     blst_p1 ret_P; // Mont coordinates
 
     blst_p1xyzz* buckets;
-    buckets = new blst_p1xyzz [B_size];
+    buckets = new blst_p1xyzz [B_SIZE];
     blst_p1_tile_pippenger_CHES_q_over_5(&ret_P, points_ptr, npoints, scalars, booth_signs,\
-                                         buckets, BUCKET_SET, B_size);
+                                         buckets, BUCKET_SET, B_SIZE);
     delete[] buckets;
     delete[] points_ptr;
     delete[] booth_signs;    
@@ -1039,8 +743,6 @@ blst_p1_affine pippenger_variant_submission_CHES_blst_tile_copy(){
 
 
 
-
-
 void test(){
 
     std::cout << "Test starts.\n";
@@ -1075,7 +777,6 @@ void test(){
     auto st = std::chrono::steady_clock::now();
     for(size_t i = 0; i< TEST_NUM; ++i)
     {
-
         SCRATCH = new limb_t[blst_p1s_mult_pippenger_scratch_sizeof(N_POINTS)/sizeof(limb_t)];
         blst_p1s_mult_pippenger(&ret_P, points_ptr, N_POINTS, scalars_ptr, nbits, SCRATCH);   
         delete[] SCRATCH;
@@ -1101,19 +802,21 @@ void test(){
     std::cout << ret_P_affine.x <<std::endl;
     std::cout << ret_P_affine.y <<std::endl;
 
-    // std::cout << float(diff1.count() - 2*diff2.count())/float(diff1.count() - diff2.count()) <<std::endl;
-    // /*nh + q/5 method*/
-    // st = std::chrono::steady_clock::now();
-    // for(size_t i = 0; i< TEST_NUM; ++i)
-    // {
-    //     ret_P_affine = pippenger_variant_submission_CHES();
-    // }
-    // ed = std::chrono::steady_clock::now();   
-    // diff = std::chrono::duration_cast<std::chrono::microseconds>(ed - st);
-    // std::cout << "CHES 'nh+ q/5' method Wall clock time elapse is: " << std::dec << diff.count()/TEST_NUM << " us "<< std::endl;
-    // std::cout << ret_P_affine.x <<std::endl;
-    // std::cout << ret_P_affine.y <<std::endl;
+    std::cout << "Improvement: " << float(diff1.count() - diff2.count())/float(diff1.count()) <<std::endl;
 
+    /*nh + q/5 method*/
+    st = std::chrono::steady_clock::now();
+    for(size_t i = 0; i< TEST_NUM; ++i)
+    {
+        ret_P_affine = pippenger_variant_submission_CHES();
+    }
+    ed = std::chrono::steady_clock::now();   
+    std::chrono::microseconds diff3 = std::chrono::duration_cast<std::chrono::microseconds>(ed - st);
+    std::cout << "CHES 'nh+ q/5' method Wall clock time elapse is: " << std::dec << diff3.count()/TEST_NUM << " us "<< std::endl;
+    std::cout << ret_P_affine.x <<std::endl;
+    std::cout << ret_P_affine.y <<std::endl;
+    
+    std::cout << "Improvement: " << float(diff1.count() - diff3.count())/float(diff1.count()) <<std::endl;
 
 
 
@@ -1213,50 +916,6 @@ void test_three_scalar_multiplication_methods(){// Correctness has been tested.
     std::cout << s << std::endl;
 }
 
-size_t pippenger_window_size(size_t npoints)
-{
-    size_t wbits;
-
-    for (wbits=0; npoints>>=1; wbits++) ;
-
-    return wbits>12 ? wbits-3 : (wbits>4 ? wbits-2 : (wbits ? 2 : 1));
-}
-
-/*
- * Window value encoding that utilizes the fact that -P is trivially
- * calculated, which allows to halve the size of pre-computed table,
- * is attributed to A. D. Booth, hence the name of the subroutines...
- */
-limb_t booth_encode(limb_t wval, size_t sz)
-{
-    limb_t mask = 0 - (wval >> sz);     /* "sign" bit -> mask */
-
-    wval = (wval + 1) >> 1;
-    wval = (wval & ~mask) | ((0-wval) & mask);
-
-    /* &0x1f, but <=0x10, is index in table, rest is extended "sign" bit */
-    return wval;
-}
-
-
-/* Works up to 25 bits. */
-limb_t get_wval_limb(const byte *d, size_t off, size_t bits)
-{
-    size_t i, top = (off + bits - 1)/8;
-    limb_t ret, mask = (limb_t)0 - 1;
-
-    d   += off/8;
-    top -= off/8-1;
-
-    /* this is not about constant-time-ness, but branch optimization */
-    for (ret=0, i=0; i<4;) {
-        ret |= (*d & mask) << (8*i);
-        mask = (limb_t)0 - ((++i - top) >> (8*sizeof(top)-1));
-        d += 1 & mask;
-    }
-
-    return ret >> (off%8);
-}
 
 void test_xyzz(){
     std::cout << " test_xyzz() " << std::endl;
@@ -1268,7 +927,11 @@ void test_xyzz(){
     blst_p1_affine ret2a;
 
     unsigned char booth_sign = 0; // if booth_sign == 1, it is a subtraction.
-    blst_p1xyzz Pxyzz = { 0 , 1, 0, 0};
+    blst_p1xyzz Pxyzz;
+    vec_zero(&Pxyzz, sizeof(Pxyzz));
+    blst_p1xyzz_to_Jacobian(&ret, &Pxyzz);
+    std::cout <<"xyzz initialization is inf test: "<<  blst_p1_is_inf(&ret) << std::endl;
+
     blst_p1xyzz_dadd_affine(&Pxyzz, &Pxyzz, &P, booth_sign);
     blst_p1_to_affine(&reta, &ret);
 
@@ -1296,21 +959,21 @@ int main(){
     // test_three_scalar_multiplication_methods();// Correct!
 
 
-    blst_p1_affine Q = *blst_p1_affine_generator();
-    blst_p1_affine Qn = Q;
+    // blst_p1_affine Q = *blst_p1_affine_generator();
+    // blst_p1_affine Qn = Q;
 
-    blst_fp_sub(&Qn.y, &FP_Z, &Qn.y);
-    blst_p1 ret, xyzQ, xyzQn;
+    // blst_fp_sub(&Qn.y, &FP_Z, &Qn.y);
+    // blst_p1 ret, xyzQ, xyzQn;
 
-    blst_p1_from_affine(&xyzQ, &Q);
+    // blst_p1_from_affine(&xyzQ, &Q);
 
-    blst_p1_from_affine(&xyzQn, &Qn);   
-    blst_p1_add_or_double(&ret, &xyzQn, &xyzQ);
+    // blst_p1_from_affine(&xyzQn, &Qn);   
+    // blst_p1_add_or_double(&ret, &xyzQn, &xyzQ);
 
 
-    std::cout << ret.x << std::endl;
-    std::cout << ret.y << std::endl;
-    std::cout << ret.z << std::endl;
+    // std::cout << ret.x << std::endl;
+    // std::cout << ret.y << std::endl;
+    // std::cout << ret.z << std::endl;
 
     // for(int e = 10; e<= 30; ++e)
     // std::cout << std::dec << e<< "  "<< pippenger_window_size( (size_t) (1<< e) -8) << std::endl;
@@ -1334,10 +997,12 @@ int main(){
 
     // //    booth_encode(wval, 13)
     // }
-    // test_xyzz();
 
     // int nn = 4;
     // while(nn) std::cout <<  SCALARS_ARRAY[nn--] << std::endl; 
+
+    test_xyzz();
+
 
     return 0;
 }
