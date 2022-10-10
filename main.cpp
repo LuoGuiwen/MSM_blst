@@ -33,10 +33,15 @@ All functions must be invoked after init().
 
 
 #include "config_radix13.h" //define configuration in a seperate file.
+
+/*
+One only needs to change this config_radixnn.h file to do other computation.
+*/
+
+
+
 #include "auxiliaryfunc.h"
 
-// std::set<int> BUCKET_SET;
-std::vector<int> BUCKET_SET_ASCEND_VEC;
 std::set<int> MULTI_SET = {1, 2, 3};
 
 /* This once leads to a big BUG. */
@@ -487,6 +492,7 @@ blst_p1 accumulation_d(int bucketSetList[], const std::vector<blst_p1>& intermed
 
 
  /* Calculate sum of bucket_set_ascend[i]*buckets[i] for i=0 to i= bucket_set_size - 1. 0 is in bucket_set */\
+/*Correctness verified*/
 void blst_p1_integrate_buckets(blst_p1 *out, blst_p1xyzz buckets[], int bucket_set_ascend[], size_t bucket_set_size, int d_max){
     
     blst_p1xyzz tmp, tmp1, tmp_d[d_max+1];
@@ -510,7 +516,7 @@ void blst_p1_integrate_buckets(blst_p1 *out, blst_p1xyzz buckets[], int bucket_s
 }
 
 /*Correctness has been verified*/
-blst_p1_affine pippenger_variant_submission_CHES(){
+blst_p1_affine pippenger_variant_submission_CHES_backup(){
     
     std::cout <<"pippenger_variant_submission_CHES() with accumulation_d" << std::endl;
 
@@ -561,12 +567,107 @@ blst_p1_affine pippenger_variant_submission_CHES(){
     return res_affine;
 }
 
+/*Correctness has been verified*/
+blst_p1_affine pippenger_variant_submission_CHES(){
+    
+    std::cout <<"pippenger_variant_submission_CHES() with accumulation_d" << std::endl;
+
+    blst_p1xyzz* buckets;
+    buckets = new blst_p1xyzz [B_SIZE];
+    vec_zero(buckets, sizeof(buckets[0])*B_SIZE); 
+  
+
+    std::array<std::array< int, 2>, h_LEN_SCALAR> ret_MB_expr;
+   
+    for(int i = 0; i< N_POINTS; ++i){
+
+        trans_uint256_t_to_MB_radixq_expr(ret_MB_expr, SCALARS_ARRAY[i]);
+
+        int j = 0;
+
+        int booth_idx = BUCKET_VALUE_TO_ITS_INDEX[ret_MB_expr[j][1]];
+        int booth_idx_nxt = BUCKET_VALUE_TO_ITS_INDEX[ret_MB_expr[j+1][1]];
+        unsigned char booth_sign;
+        blst_p1_affine tmp_Pa;
+
+        int m = ret_MB_expr[j][0];
+        if (m > 0) {
+            tmp_Pa = (m == 1)? (*PRECOMPUTATION_POINTS_LIST_nh)[i][0]: \
+            ((m==2)? (*PRECOMPUTATION_POINTS_LIST_nh_2)[i][0]:\
+            (*PRECOMPUTATION_POINTS_LIST_nh_3)[i][0]);
+            booth_sign = 0;
+        }
+        else{
+            tmp_Pa = (m == -1)? (*PRECOMPUTATION_POINTS_LIST_nh)[i][0]: \
+            ((m==-2)? (*PRECOMPUTATION_POINTS_LIST_nh_2)[i][0]:\
+            (*PRECOMPUTATION_POINTS_LIST_nh_3)[i][0]);
+            booth_sign = 1;
+        }
+        blst_p1xyzz_dadd_affine(&buckets[booth_idx], &buckets[booth_idx], &tmp_Pa, booth_sign);
+        
+        ++j;
+
+        for( ; j< h_LEN_SCALAR-1; ++j){
+            m = ret_MB_expr[j][0];
+            booth_idx = booth_idx_nxt;
+            booth_idx_nxt = BUCKET_VALUE_TO_ITS_INDEX[ret_MB_expr[j+1][1]];
+            blst_p1_prefetch(buckets, booth_idx_nxt);
+
+            unsigned char booth_sign;
+            blst_p1_affine tmp_Pa;
+
+            if (m> 0) {
+                tmp_Pa = (m == 1)? (*PRECOMPUTATION_POINTS_LIST_nh)[i][j]: \
+                ((m==2)? (*PRECOMPUTATION_POINTS_LIST_nh_2)[i][j]:\
+                (*PRECOMPUTATION_POINTS_LIST_nh_3)[i][j]);
+                booth_sign = 0;
+            }
+            else{
+                tmp_Pa = (m == -1)? (*PRECOMPUTATION_POINTS_LIST_nh)[i][j]: \
+                ((m==-2)? (*PRECOMPUTATION_POINTS_LIST_nh_2)[i][j]:\
+                (*PRECOMPUTATION_POINTS_LIST_nh_3)[i][j]);
+                booth_sign = 1;
+            }
+            blst_p1xyzz_dadd_affine(&buckets[booth_idx], &buckets[booth_idx], &tmp_Pa, booth_sign);
+        }
+
+        m = ret_MB_expr[j][0];
+        booth_idx = booth_idx_nxt;
+        booth_idx_nxt = BUCKET_VALUE_TO_ITS_INDEX[ret_MB_expr[j][1]];
+
+        if (m> 0) {
+            tmp_Pa = (m == 1)? (*PRECOMPUTATION_POINTS_LIST_nh)[i][j]: \
+            ((m==2)? (*PRECOMPUTATION_POINTS_LIST_nh_2)[i][j]:\
+            (*PRECOMPUTATION_POINTS_LIST_nh_3)[i][j]);
+            booth_sign = 0;
+        }
+        else{
+            tmp_Pa = (m == -1)? (*PRECOMPUTATION_POINTS_LIST_nh)[i][j]: \
+            ((m==-2)? (*PRECOMPUTATION_POINTS_LIST_nh_2)[i][j]:\
+            (*PRECOMPUTATION_POINTS_LIST_nh_3)[i][j]);
+            booth_sign = 1;
+        }
+        blst_p1xyzz_dadd_affine(&buckets[booth_idx], &buckets[booth_idx], &tmp_Pa, booth_sign);
+    }
+    
+    blst_p1 ret;
+    blst_p1_affine res_affine;
+
+    blst_p1_integrate_buckets(&ret, buckets, BUCKET_SET, B_SIZE, d_MAX_DIFF);
+    blst_p1_to_affine( &res_affine, &ret);
+
+    delete[] buckets;
+
+    return res_affine;
+}
 
 
 
 
-void blst_p1_bucket_CHES(blst_p1xyzz buckets[], int booth_idx, unsigned char booth_sign, const blst_p1_affine *p){
-    if(booth_idx)blst_p1xyzz_dadd_affine(&buckets[booth_idx], &buckets[booth_idx], p, booth_sign);
+
+
+void blst_p1_bucket_CHES(blst_p1xyzz buckets[], int booth_idx, const blst_p1_affine *p, unsigned char booth_sign){
+    blst_p1xyzz_dadd_affine(&buckets[booth_idx], &buckets[booth_idx], p, booth_sign);
 }
 
 void blst_p1_tile_pippenger_CHES_q_over_5(blst_p1 *ret, \
@@ -579,8 +680,8 @@ void blst_p1_tile_pippenger_CHES_q_over_5(blst_p1 *ret, \
     vec_zero(buckets, sizeof(buckets[0])*bucket_set_size); \
     vec_zero(ret, sizeof(*ret)); \
 
-    int i, scalar, booth_idx;
-    unsigned char booth_sign,  booth_idx_nxt;
+    int i, scalar, booth_idx, booth_idx_nxt;
+    unsigned char booth_sign;
     
     const blst_p1_affine *point = *points++;
     
@@ -588,20 +689,20 @@ void blst_p1_tile_pippenger_CHES_q_over_5(blst_p1 *ret, \
     booth_sign = *booth_signs++;
 
     booth_idx_nxt = BUCKET_VALUE_TO_ITS_INDEX[*scalars++];
-    npoints--;
-    blst_p1_bucket_CHES(buckets, booth_idx, booth_sign, point);
-    for(i =1; i < npoints; i++){
+    --npoints;
+    if(booth_idx) blst_p1_bucket_CHES(buckets, booth_idx, point, booth_sign);
+    for(i = 1; i < npoints; ++i){
         booth_idx = booth_idx_nxt;
-        booth_sign = *booth_signs++;
         booth_idx_nxt = BUCKET_VALUE_TO_ITS_INDEX[*scalars++];
         blst_p1_prefetch(buckets, booth_idx_nxt);
-        point = *points ? *points++ : point+1; 
-        blst_p1_bucket_CHES(buckets, booth_idx, booth_sign, point);
-    }
 
-    point = *points ? *points++ : point+1; 
+        point = *points++; 
+        booth_sign = *booth_signs++;
+        if(booth_idx) blst_p1_bucket_CHES(buckets, booth_idx, point,  booth_sign);
+    }
+    point = *points;
     booth_sign = *booth_signs;
-    blst_p1_bucket_CHES(buckets, booth_idx, booth_sign, point);
+    blst_p1_bucket_CHES(buckets, booth_idx_nxt, point, booth_sign);// Carefully, it must be booth_idx_nxt
     blst_p1_integrate_buckets(ret, buckets, bucket_set_ascend, bucket_set_size, d_MAX_DIFF);
 
 }
@@ -610,8 +711,6 @@ blst_p1_affine pippenger_variant_submission_CHES_blst_tile(){
     
     std::cout <<"pippenger_variant_submission_CHES_blst_tile() with custom-tailored tile accumulation" << std::endl;
 
-    // blst_p1_affine tmp_Pa = G1_AFFINE_INFINITY;
-    // blst_p1 tmp_P = G1_INFINITY;
 
     std::array<std::array< int, 2>, h_LEN_SCALAR> ret_MB_expr;
 
@@ -648,18 +747,18 @@ blst_p1_affine pippenger_variant_submission_CHES_blst_tile(){
             }  
         }
     }
-    blst_p1 ret_P; // Mont coordinates
+    blst_p1 ret; // Mont coordinates
 
     blst_p1xyzz* buckets;
     buckets = new blst_p1xyzz [B_SIZE];
-    blst_p1_tile_pippenger_CHES_q_over_5(&ret_P, points_ptr, npoints, scalars, booth_signs,\
+    blst_p1_tile_pippenger_CHES_q_over_5(&ret, points_ptr, npoints, scalars, booth_signs,\
                                          buckets, BUCKET_SET, B_SIZE);
     delete[] buckets;
     delete[] points_ptr;
     delete[] booth_signs;    
     delete[] scalars;    
     blst_p1_affine res_affine;
-    blst_p1_to_affine( &res_affine, &ret_P);
+    blst_p1_to_affine( &res_affine, &ret);
 
     return res_affine;
 }
