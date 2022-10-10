@@ -3,6 +3,10 @@ Define 256 bit scalar with shift operations Guiwen,
 WARNING: shift should be no more than 32 !!! 
 */
 
+// a simple yet useful prefetch function
+void vec_prefetch(const void *ptr, size_t len)
+{   (void)ptr; (void)len;   }
+
 class uint256_t {
     public:
 
@@ -193,6 +197,13 @@ std::ostream& operator<<(std::ostream& os, const blst_fp& b)
     return os;
 }
 
+std::ostream& operator<<(std::ostream& os, const blst_fp2& b)
+{
+    os << b.fp[0] <<" + " << std::endl\
+    << b.fp[1] << "*i  ";
+    return os;
+}
+
 std::ostream& operator<<(std::ostream& os, const blst_fr& b)
 {
     os << std::hex << b.l[3] << " "<< b.l[2]<<  " "<< b.l[1]<< " "<< b.l[0] <<" ";
@@ -228,53 +239,164 @@ std::ostream& operator<<(std::ostream& os, const uint64_t* b)
 Auxiliary Functions
 */
 
+typedef std::array<std::array< int, 2>, h_LEN_SCALAR> scalar_MB_expr;
 
-uint256_t random_scalar_less_than_r(){
-    uint256_t ret;
-    ret.data[7] = uint32_t(rand() % (0x73eda753)); // make sure the scalar is less than r.
-    ret.data[6] = uint32_t(rand());
-    ret.data[5] = uint32_t(rand());
-    ret.data[4] = uint32_t(rand());
-    ret.data[3] = uint32_t(rand());
-    ret.data[2] = uint32_t(rand());
-    ret.data[1] = uint32_t(rand());
-    ret.data[0] = uint32_t(rand());
+void print( const scalar_MB_expr &expr){
 
-    return ret;
+    std::cout << std::dec << "{";
+    for(auto a : expr){
+        std::cout <<"[ "<<a[0]<<", "<<a[1]<<" ]";
+    }
+    std::cout <<"}"<< std::endl;
+}
+
+/* scalar conversion */
+void trans_uint256_t_to_standard_q_ary_expr( std::array<int, h_LEN_SCALAR> &ret_std_expr, const uint256_t &a){
+    uint256_t tmp = a;
+    uint32_t mask = (1 << EXPONENT_OF_q) - 1;
+    for (int i=0; i< h_LEN_SCALAR; ++i){
+        ret_std_expr[i] = tmp.data[0] & mask;// we only need the bit-wise xor with the last 32-bit of tmp.
+        tmp = tmp >> EXPONENT_OF_q;
+    }
 }
 
 
-// uint256_t random_scalar_less_than_r(){
+void trans_uint256_t_to_MB_radixq_expr(std::array<std::array< int, 2>, h_LEN_SCALAR>  &ret_MB_expr, const uint256_t &a){
+    
+    // convert to the standard q ary expression first
+    std::array<int, h_LEN_SCALAR> tmp_std_expr;
+    uint256_t tmp = a;
+    uint32_t mask = (1<<EXPONENT_OF_q) -1;
 
-//     uint256_t ret;
-//     auto seed = time(NULL);
-//     srand((unsigned) seed);
-//     ret.data[7] = uint32_t(rand() % (0x73eda753)); // make sure the scalar is less than r.
+    for (int i=0; i< h_LEN_SCALAR; ++i){
+        tmp_std_expr[i] = tmp.data[0] & mask;// we only need the bit-wise xor with the last 32-bit of tmp.
+        tmp = tmp >> EXPONENT_OF_q;
+    }
 
-//     srand((unsigned) seed+1);
-//     ret.data[6] = uint32_t(rand());
+    digit_decomposition tmp_tri;
+    for (int i = 0; i< h_LEN_SCALAR; ++i){
+        digit_decomposition tmp_tri = DIGIT_CONVERSION_HASH_TABLE[tmp_std_expr[i]];
+        if(tmp_tri.alpha ==0){
+            ret_MB_expr[i][0] = tmp_tri.m;
+            ret_MB_expr[i][1] = tmp_tri.b;
+        }
 
-//     srand((unsigned) seed+2);
-//     ret.data[5] = uint32_t(rand());
+        else{
+            ret_MB_expr[i][0] = - tmp_tri.m;
+            ret_MB_expr[i][1] = tmp_tri.b;
+            tmp_std_expr[i+1] += 1; 
+        }
+    }
+}
 
-//     srand((unsigned) seed+3);
-//     ret.data[4] = uint32_t(rand());
 
-//     srand((unsigned) seed+4);
-//     ret.data[3] = uint32_t(rand());
+void trans_uint256_t_to_standard_q_ary_expr_BGMW95( std::array<int, h_BGMW95> &ret_std_expr, const uint256_t &a){
+    uint256_t tmp = a;
+    uint32_t mask = (1 << EXPONENT_OF_q_BGMW95) - 1;
+    for (int i=0; i< h_BGMW95; ++i){
+        ret_std_expr[i] = tmp.data[0] & mask;// we only need the bit-wise xor with the last 32-bit of tmp.
+        tmp = tmp >> EXPONENT_OF_q_BGMW95;
+    }
+}
 
-//     srand((unsigned) seed+5);
-//     ret.data[2] = uint32_t(rand());
+void trans_uint256_t_to_qhalf_expr( std::array<int, h_BGMW95> &ret_qhalf_expr, const uint256_t &a){
+    uint256_t tmp = a;
+    int qhalf = int (q_RADIX_PIPPENGER_VARIANT>>1);
+    uint32_t mask = uint32_t (q_RADIX_PIPPENGER_VARIANT - 1);
+    for (int i=0; i< h_BGMW95; ++i){
+        ret_qhalf_expr[i] = tmp.data[0] & mask;// we only need the bit-wise xor with the last 32-bit of tmp.
+        tmp = tmp >> EXPONENT_OF_q_BGMW95;
+    }
+    for (int i=0; i< h_BGMW95 - 1; ++i){
+            if(ret_qhalf_expr[i] > qhalf){
+            ret_qhalf_expr[i] -= q_RADIX_PIPPENGER_VARIANT;
+            ret_qhalf_expr[i+1] +=1;
+            // system parameter makes sure ret_qhalf_expr[h-1]<= q/2.
+        }
+    }
+}
 
-//     srand((unsigned) seed+6);
-//     ret.data[1] = uint32_t(rand());
 
-//     srand((unsigned) seed+7);
-//     ret.data[0] = uint32_t(rand());
+int omega2( int n){
+    int rem = n % 2;
+    int exponent = 0;
+    while( rem == 0){
+        exponent ++;
+        n >>= 1;
+        rem = n % 2;
+    }
+    return exponent;
+}
 
-//     return ret;
-// }
+int omega3( int n){
+    int rem = n % 3;
+    int exponent = 0;
+    while( rem == 0){
+        exponent ++;
+        n = n/3;
+        rem = n % 3;
+    }
+    return exponent;
+}
 
+// Correctness is checked in sagemath
+void construct_bucket_set(int bucket_set[], int q, int ah){
+
+    std::set<int> B = {0, 1};
+    
+    for(int i = 2; i <= q/2; ++i){
+        if (((omega2(i) + omega3(i))%2) == 0){
+            B.insert(i);
+        }
+    }
+    
+    for(int i = q/4; i < q/2; ++i){
+        if ((B.find(i) != B.end()) && (B.find(q - 2*i) != B.end()) ) // if i is in B and q-3*i is in B
+        {
+            B.erase(q - 2*i);
+        }
+    }
+    for(int i = q/6; i < q/4; ++i){
+        if ((B.find(i) != B.end()) && (B.find(q - 3*i) != B.end()) ) // if i is in B and q-3*i is in B
+        {
+            B.erase(q - 3*i);
+        }
+    }
+    
+    for(int i = 1; i <= ah+1; ++i){
+        if (((omega2(i) + omega3(i))%2) == 0){
+            B.insert(i);
+        }
+    }
+    
+    int index = 0;
+    for(auto b: B){bucket_set[index] = b; ++index;};
+}
+
+
+uint256_t random_scalar_less_than_r(){
+    
+    uint256_t ret;
+
+    std::random_device rd;
+    // Initialize Mersenne Twister pseudo-random number generator
+    std::mt19937 gen(rd());
+
+    // Generate pseudo-random numbers
+    // uniformly distributed in range
+    std::uniform_int_distribution<> dis(0, 2147483647); // 2147483647 = 2**31 -1
+
+    ret.data[7] = uint32_t(dis(gen)) % (0x73eda753); // make sure the scalar is less than r.
+    ret.data[6] = uint32_t(dis(gen));
+    ret.data[5] = uint32_t(dis(gen));
+    ret.data[4] = uint32_t(dis(gen));
+    ret.data[3] = uint32_t(dis(gen));
+    ret.data[2] = uint32_t(dis(gen));
+    ret.data[1] = uint32_t(dis(gen));
+    ret.data[0] = uint32_t(dis(gen));
+
+    return ret;
+}
 
 
 void byte_str_from_uint32(uint8_t ret[4], const uint32_t a)
@@ -345,3 +467,4 @@ limb_t get_wval_limb(const byte *d, size_t off, size_t bits)
 
     return ret >> (off%8);
 }
+

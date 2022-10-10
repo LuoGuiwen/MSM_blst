@@ -7,6 +7,9 @@
 #include "fields.h"
 #include "point.h"
 
+
+typedef u_int32_t uint32_t; // On ubuntu system, it might be no uint32_t
+
 /*
  * Infinite point among inputs would be devastating. Shall we change it?
  */
@@ -292,6 +295,53 @@ static void ptype##_integrate_buckets(ptype *out, ptype##xyzz buckets[], \
     ptype##xyzz_to_Jacobian(out, ret); \
 } \
 \
+/* Calculate sum of bucket_set_ascend[i]*buckets[i] for i=0 to i= bucket_set_size - 1. 0 is in bucket_set */\
+/*Correctness verified*/\
+static void ptype##_integrate_buckets_accumulation_d_CHES(ptype *out, ptype##xyzz buckets[], int bucket_set_ascend[], size_t bucket_set_size, int d_max){\
+\
+    ptype##xyzz tmp, tmp1, tmp_d[d_max+1];\
+    vec_zero(&tmp, sizeof(tmp));\
+    vec_zero(tmp_d, sizeof(tmp_d[0])*(d_max+1));\
+    for(size_t i = bucket_set_size -1; i> 0; --i){\
+        ptype##xyzz_dadd(&tmp, &tmp, &buckets[i]);\
+        int differ =  bucket_set_ascend[i] -  bucket_set_ascend[i-1];\
+        ptype##xyzz_dadd(&tmp_d[differ], &tmp_d[differ], &tmp);\
+    }\
+    \
+    vec_zero(&tmp, sizeof(tmp));\
+    vec_zero(&tmp1, sizeof(tmp1));\
+    \
+    for(int i = d_max; i > 0; --i ){\
+        ptype##xyzz_dadd(&tmp, &tmp, &(tmp_d[i]));\
+        ptype##xyzz_dadd(&tmp1, &tmp1, &tmp);\
+    }\
+    \
+    ptype##xyzz_to_Jacobian(out, &tmp1);\
+}\
+\
+static void ptype##_integrate_buckets_accumulation_d_CHES_noindexhash(ptype *out, ptype##xyzz buckets[], int bucket_set_ascend[], size_t bucket_set_size, int d_max){\
+\
+    ptype##xyzz tmp, tmp1, tmp_d[d_max+1];\
+    vec_zero(&tmp, sizeof(tmp));\
+    vec_zero(tmp_d, sizeof(tmp_d[0])*(d_max+1));\
+    for(size_t i = bucket_set_size -1; i> 0; --i){\
+        int idx = bucket_set_ascend[i];\
+        ptype##xyzz_dadd(&tmp, &tmp, &buckets[idx]);\
+        int differ =  idx -  bucket_set_ascend[i-1];\
+        ptype##xyzz_dadd(&tmp_d[differ], &tmp_d[differ], &tmp);\
+    }\
+    \
+    vec_zero(&tmp, sizeof(tmp));\
+    vec_zero(&tmp1, sizeof(tmp1));\
+    \
+    for(int i = d_max; i > 0; --i ){\
+        ptype##xyzz_dadd(&tmp, &tmp, &(tmp_d[i]));\
+        ptype##xyzz_dadd(&tmp1, &tmp1, &tmp);\
+    }\
+    \
+    ptype##xyzz_to_Jacobian(out, &tmp1);\
+}\
+\
 \
 static void ptype##_bucket(ptype##xyzz buckets[], limb_t booth_idx, \
                            size_t wbits, const ptype##_affine *p) \
@@ -304,13 +354,11 @@ static void ptype##_bucket(ptype##xyzz buckets[], limb_t booth_idx, \
                                                      p, booth_sign); \
 } \
 \
-static void ptype##_bucket_CHES(ptype##xyzz buckets[], limb_t booth_idx, unsigned char booth_sign, \
-                           const ptype##_affine *p) \
-{ \
-    if (booth_idx--) \
-        ptype##xyzz_dadd_affine(&buckets[booth_idx], &buckets[booth_idx], \
-                                                     p, booth_sign); \
-} \
+static void ptype##_bucket_CHES(ptype##xyzz buckets[], limb_t booth_idx, const ptype##_affine *p,\
+                                unsigned char booth_sign) \
+{ ptype##xyzz_dadd_affine(&buckets[booth_idx], &buckets[booth_idx], \
+                                                     p, booth_sign); } \
+\
 \
 static void ptype##xyzz_test(ptype##xyzz *out, const ptype##xyzz *in,\
                         const ptype##_affine *p,  unsigned char booth_sign)\
@@ -325,6 +373,11 @@ static void ptype##_prefetch(const ptype##xyzz buckets[], limb_t booth_idx, \
     if (booth_idx--) \
         vec_prefetch(&buckets[booth_idx], sizeof(buckets[booth_idx])); \
 } \
+\
+static void ptype##_prefetch_CHES(const ptype##xyzz buckets[], limb_t booth_idx){\
+    vec_prefetch(&buckets[booth_idx], sizeof(buckets[booth_idx]));/*in CHES paper, we take booth_idx = 0 intoconsideration, so index doesnot minus 1*/ \
+}\
+\
 \
 static void ptype##s_tile_pippenger(ptype *ret, \
                                     const ptype##_affine *const points[], \
@@ -364,6 +417,133 @@ static void ptype##s_tile_pippenger(ptype *ret, \
     ptype##_integrate_buckets(ret, buckets, cbits - 1); \
 } \
 \
+static void ptype##_tile_pippenger_d_CHES(ptype *ret, \
+                                    const ptype##_affine *const points[], \
+                                    size_t npoints, \
+                                    const int scalars[], const unsigned char booth_signs[], \
+                                    ptype##xyzz buckets[], int bucket_set_ascend[], int bucket_value_to_its_index[],\
+                                    size_t bucket_set_size, int d_max){\
+    \
+    /* Initialization */\
+    vec_zero(buckets, sizeof(buckets[0])*bucket_set_size); \
+    vec_zero(ret, sizeof(*ret)); \
+    \
+    int booth_idx, booth_idx_nxt;\
+    size_t i;\
+    unsigned char booth_sign;\
+    const ptype##_affine *point;\
+    \
+    booth_idx = bucket_value_to_its_index[*scalars++];\
+    booth_idx_nxt = bucket_value_to_its_index[*scalars++];\
+    \
+    vec_prefetch(&bucket_value_to_its_index[*scalars], 4);\
+    ptype##_prefetch_CHES(buckets, booth_idx_nxt);\
+    \
+    booth_sign = *booth_signs++;\
+    point = *points++;\
+    if(booth_idx) ptype##_bucket_CHES(buckets, booth_idx, point, booth_sign);\
+    \
+    --npoints;\
+    for(i = 1; i < npoints; ++i){\
+        booth_idx = booth_idx_nxt;\
+        booth_idx_nxt = bucket_value_to_its_index[*scalars++];\
+        \
+        vec_prefetch(&bucket_value_to_its_index[*scalars], 4);\
+        ptype##_prefetch_CHES(buckets, booth_idx_nxt);\
+        \
+        point = *points++;\
+        booth_sign = *booth_signs++;\
+        if(booth_idx) ptype##_bucket_CHES(buckets, booth_idx, point,  booth_sign);\
+    }\
+    point = *points;\
+    booth_sign = *booth_signs;\
+    ptype##_bucket_CHES(buckets, booth_idx_nxt, point, booth_sign);/* Carefully, it must be booth_idx_nxt*/\
+    ptype##_integrate_buckets_accumulation_d_CHES(ret, buckets, bucket_set_ascend, bucket_set_size, d_max);\
+}\
+\
+\
+static void ptype##_tile_pippenger_d_CHES_noindexhash(ptype *ret, \
+                                    const ptype##_affine *const points[], \
+                                    size_t npoints, \
+                                    const int scalars[], const unsigned char booth_signs[], \
+                                    ptype##xyzz buckets[], int bucket_set_ascend[],\
+                                    size_t bucket_set_size, int d_max){\
+    \
+    vec_zero(buckets, sizeof(buckets[0])*(bucket_set_ascend[bucket_set_size-1]+1));\
+    vec_zero(ret, sizeof(*ret)); \
+    \
+    int booth_idx, booth_idx_nxt;\
+    size_t i;\
+    unsigned char booth_sign;\
+    \
+    const ptype##_affine *point = *points++;\
+    \
+    booth_idx = *scalars++;\
+    booth_sign = *booth_signs++;\
+    booth_idx_nxt = *scalars++;\
+    \
+    if(booth_idx) ptype##_bucket_CHES(buckets, booth_idx, point, booth_sign);\
+    \
+    --npoints;\
+    for(i = 1; i < npoints; ++i){\
+        \
+        booth_idx = booth_idx_nxt;\
+        booth_idx_nxt = *scalars++;\
+        ptype##_prefetch_CHES(buckets, booth_idx_nxt);\
+        \
+        point = *points++;\
+        booth_sign = *booth_signs++;\
+        if(booth_idx) ptype##_bucket_CHES(buckets, booth_idx, point,  booth_sign);\
+    }\
+    point = *points;\
+    booth_sign = *booth_signs;\
+    ptype##_bucket_CHES(buckets, booth_idx_nxt, point, booth_sign);/* Carefully, it must be booth_idx_nxt*/\
+    ptype##_integrate_buckets_accumulation_d_CHES_noindexhash(ret, buckets, bucket_set_ascend, bucket_set_size, d_max);\
+}\
+\
+\
+static void ptype##_tile_pippenger_BGMW95(ptype *ret, \
+                                    const ptype##_affine *const points[], \
+                                    size_t npoints, \
+                                    const int scalars[], const unsigned char booth_signs[],\
+                                    ptype##xyzz buckets[],\
+                                    size_t q_exponent){\
+    \
+    /* Initialization */\
+    size_t bucket_set_size = (size_t) (1<< (q_exponent -1)) + 1;\
+    vec_zero(buckets, sizeof(buckets[0])*bucket_set_size); \
+    vec_zero(ret, sizeof(*ret)); \
+    \
+    int booth_idx, booth_idx_nxt;\
+    \
+    size_t i;\
+    unsigned char booth_sign;\
+    \
+    const ptype##_affine *point = *points++;\
+    \
+    booth_idx = *scalars++;\
+    booth_sign = *booth_signs++;\
+    \
+    booth_idx_nxt = *scalars++;\
+    \
+    if(booth_idx) ptype##_bucket_CHES(buckets, booth_idx, point, booth_sign);\
+    \
+    --npoints;\
+    for(i = 1; i < npoints; ++i){\
+        booth_idx = booth_idx_nxt;\
+        booth_idx_nxt = *scalars++;\
+        ptype##_prefetch_CHES(buckets, booth_idx_nxt);\
+        \
+        point = *points++;\
+        booth_sign = *booth_signs++;\
+        if(booth_idx) ptype##_bucket_CHES(buckets, booth_idx, point,  booth_sign);\
+    }\
+    point = *points;\
+    booth_sign = *booth_signs;\
+    ptype##_bucket_CHES(buckets, booth_idx_nxt, point, booth_sign);/* Carefully, it must be booth_idx_nxt*/\
+    ++buckets;/* We don't use the buckets[0] */\
+    ptype##_integrate_buckets(ret, buckets, q_exponent - 1);\
+}\
 \
 static void ptype##s_mult_pippenger(ptype *ret, \
                                     const ptype##_affine *const points[], \
@@ -394,11 +574,14 @@ static void ptype##s_mult_pippenger(ptype *ret, \
     ptype##_dadd(ret, ret, tile, NULL); \
 } \
 \
+\
+\
+\
 size_t prefix##s_mult_pippenger_scratch_sizeof(size_t npoints) \
 {   return sizeof(ptype##xyzz) << (pippenger_window_size(npoints)-1);   } \
 \
-size_t prefix##s_mult_pippenger_scratch_sizeof_CHES_q_over_5(size_t window) \
-{   return sizeof(ptype##xyzz)*((window/2)+1);} \
+size_t prefix##s_mult_pippenger_scratch_sizeof_CHES(size_t window) \
+{   return sizeof(ptype##xyzz)*((window/2));} \
 \
 void prefix##s_tile_pippenger(ptype *ret, \
                               const ptype##_affine *const points[], \
@@ -426,7 +609,7 @@ void prefix##xyzz_dadd_affine(ptype##xyzz *out, \
                 const ptype##xyzz *in, const ptype##_affine *p,  uint32_t booth_sign)\
 { ptype##xyzz_test(out, in , p, booth_sign); }\
 \
-void prefix##_prefetch(const ptype##xyzz buckets[], limb_t booth_idx){\
+void prefix##_prefetch_CHES(const ptype##xyzz buckets[], limb_t booth_idx){\
     vec_prefetch(&buckets[booth_idx], sizeof(buckets[booth_idx]));\
 }\
 \
@@ -446,7 +629,60 @@ void prefix##xyzz_dadd(ptype##xyzz *p3, const ptype##xyzz *p1, \
     ptype##xyzz_dadd(p3, p1, p2); \
 }\
 \
+void prefix##_bucket_CHES(ptype##xyzz buckets[], limb_t booth_idx, const ptype##_affine *p,\
+                                unsigned char booth_sign) \
+{ ptype##xyzz_dadd_affine(&buckets[booth_idx], &buckets[booth_idx], \
+                                                     p, booth_sign); } \
+\
+void prefix##_integrate_buckets_accumulation_d_CHES(ptype *out, ptype##xyzz buckets[], int bucket_set_ascend[],\
+                                                    size_t bucket_set_size, int d_max){\
+    ptype##_integrate_buckets_accumulation_d_CHES(out, buckets, bucket_set_ascend, bucket_set_size, d_max);\
+}\
+\
+void prefix##_tile_pippenger_d_CHES(ptype *ret, \
+                                    const ptype##_affine *const points[], \
+                                    size_t npoints, \
+                                    const int scalars[], const unsigned char booth_signs[], \
+                                    ptype##xyzz buckets[], int bucket_set_ascend[], int bucket_value_to_its_index[],\
+                                    size_t bucket_set_size, int d_max){\
+    ptype##_tile_pippenger_d_CHES(ret, \
+                                    points, \
+                                    npoints, \
+                                    scalars,  booth_signs, \
+                                    buckets, bucket_set_ascend, bucket_value_to_its_index,\
+                                    bucket_set_size, d_max);\
+}\
+\
+void prefix##_tile_pippenger_d_CHES_noindexhash(ptype *ret, \
+                                    const ptype##_affine *const points[], \
+                                    size_t npoints, \
+                                    const int scalars[], const unsigned char booth_signs[], \
+                                    ptype##xyzz buckets[], int bucket_set_ascend[],\
+                                    size_t bucket_set_size, int d_max){\
+    ptype##_tile_pippenger_d_CHES_noindexhash(ret, \
+                                    points, \
+                                    npoints, \
+                                    scalars,  booth_signs, \
+                                    buckets, bucket_set_ascend,\
+                                    bucket_set_size, d_max);\
+}\
+\
+void prefix##_tile_pippenger_BGMW95(ptype *ret, \
+                                    const ptype##_affine *const points[], \
+                                    size_t npoints, \
+                                    const int scalars[], const unsigned char booth_signs[],\
+                                    ptype##xyzz buckets[],\
+                                    size_t q_exponent){\
+    ptype##_tile_pippenger_BGMW95(ret, \
+                                points, \
+                                npoints, \
+                                scalars, booth_signs,\
+                                buckets,\
+                                q_exponent);\
+                                }
 
+
+/*leave an empty line below*/\
 
 DECLARE_PRIVATE_POINTXYZZ(POINTonE1, 384)
 POINTXYZZ_TO_JACOBIAN_IMPL(POINTonE1, 384, fp)
