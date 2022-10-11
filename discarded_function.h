@@ -608,6 +608,34 @@ void pippenger_tile_CHES_prefetch_2step_ahead_input_std_scalar(blst_p1 *ret, \
 
 
 
+void construct_nh_scalars_nh_points(int nh_scalars[], unsigned char booth_signs[], blst_p1_affine* nh_points_ptr[], const size_t npoints, blst_p1_affine PRECOMPUTATION_POINTS_LIST_3nh[], const digit_decomposition DIGIT_CONVERSION_HASH_TABLE[]){
+
+    int* scalars_p = nh_scalars;
+    unsigned char* booth_signs_p = booth_signs;
+    blst_p1_affine** points_p = nh_points_ptr;
+    
+    digit_decomposition tmp_tri;
+
+    size_t point_idx;
+    int i = 0;
+    for(  ; i< npoints -1; ++i){
+        tmp_tri = DIGIT_CONVERSION_HASH_TABLE[*scalars_p];
+        *scalars_p++ = tmp_tri.b;
+        *booth_signs_p++ = tmp_tri.alpha;
+        if(tmp_tri.alpha) ++(*scalars_p); // if tmp_tri[2] == 1
+        point_idx = 3*i + tmp_tri.m - 1; // m is always greater than 0.
+        *points_p++ = &PRECOMPUTATION_POINTS_LIST_3nh[point_idx];
+    }
+
+    tmp_tri = DIGIT_CONVERSION_HASH_TABLE[*scalars_p];
+    *scalars_p = tmp_tri.b;
+    *booth_signs_p = tmp_tri.alpha;
+    point_idx = 3*i + tmp_tri.m - 1; 
+    *points_p = &PRECOMPUTATION_POINTS_LIST_3nh[point_idx];
+    }
+
+
+
 /* initialization later on using init() */
 blst_fr FR_ONE;
 blst_fp FP_ONE, FP_MONT_ONE, FP_Z;

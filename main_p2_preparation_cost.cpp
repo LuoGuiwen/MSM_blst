@@ -1,6 +1,6 @@
 /***----***
  
-ompile with: g++ -std=c++17 -o main_test -g -O2 main_p2.cpp libblst.a
+ompile with: g++ -std=c++17 -o main_test -g -O2 main_p2_preparation_cost.cpp libblst.a
 
 If segmentation fault occurs, possibly it can be tentatively circumvented by using the following code in command line to unleash the stack restriction:
 
@@ -30,7 +30,7 @@ All functions must be invoked after init_xx().
 A) Define global variables and their initializations
 ***----***/
 
-#include "config_file_n_exp_8.h" //define configuration in a seperate file.
+#include "config_file_n_exp_10.h" //define configuration in a seperate file.
 
 digit_decomposition* DIGIT_CONVERSION_HASH_TABLE;
 #include "auxiliaryfunc.h"
@@ -202,15 +202,15 @@ blst_p2_affine pippenger_variant_q_over_5_CHES_prefetch_2step_ahead(uint256_t sc
 
     blst_p2 ret;
 
-    // here the scalar's standard q-ary representation int scalars[], and the precomputation array PRECOMPUTATION_POINTS_LIST_3nh is
-    // directly input to the function, the MB conversion and booth_sign are dealt within the function. See multi_scalar.c for the code.
-    blst_p2_tile_pippenger_CHES_prefetch_2step_ahead_input_std_scalar(&ret, \
-                                    PRECOMPUTATION_POINTS_LIST_3nh, \
-                                    npoints, \
-                                    scalars,  DIGIT_CONVERSION_HASH_TABLE,\
-                                    buckets,\
-                                    BUCKET_SET, BUCKET_VALUE_TO_ITS_INDEX,\
-                                    B_SIZE, d_MAX_DIFF);
+    // // here the scalar's standard q-ary representation int scalars[], and the precomputation array PRECOMPUTATION_POINTS_LIST_3nh is
+    // // directly input to the function, the MB conversion and booth_sign are dealt within the function. See multi_scalar.c for the code.
+    // blst_p2_tile_pippenger_CHES_prefetch_2step_ahead_input_std_scalar(&ret, \
+    //                                 PRECOMPUTATION_POINTS_LIST_3nh, \
+    //                                 npoints, \
+    //                                 scalars,  DIGIT_CONVERSION_HASH_TABLE,\
+    //                                 buckets,\
+    //                                 BUCKET_SET, BUCKET_VALUE_TO_ITS_INDEX,\
+    //                                 B_SIZE, d_MAX_DIFF);
   
     delete[] buckets; 
     delete[] scalars;    
@@ -263,8 +263,8 @@ blst_p2_affine pippenger_variant_q_over_5_CHES(uint256_t scalars_array[]){
 
     buckets = new blst_p2xyzz [B_SIZE];
 
-    blst_p2_tile_pippenger_d_CHES(&ret, points_ptr, npoints, scalars, booth_signs,\
-                                         buckets, BUCKET_SET, BUCKET_VALUE_TO_ITS_INDEX , B_SIZE, d_MAX_DIFF);
+    // blst_p2_tile_pippenger_d_CHES(&ret, points_ptr, npoints, scalars, booth_signs,\
+    //                                      buckets, BUCKET_SET, BUCKET_VALUE_TO_ITS_INDEX , B_SIZE, d_MAX_DIFF);
     delete[] buckets;
     delete[] points_ptr;
     delete[] booth_signs;    
@@ -314,12 +314,12 @@ blst_p2_affine pippenger_variant_BGMW95(uint256_t scalars_array[]){
     int qhalf = int(q_RADIX_PIPPENGER_VARIANT>>1);
     buckets = new blst_p2xyzz [qhalf + 1];
 
-    blst_p2_tile_pippenger_BGMW95(&ret, \
-                                    points_ptr, \
-                                    npoints, \
-                                    scalars, booth_signs,\
-                                    buckets,\
-                                    EXPONENT_OF_q_BGMW95);
+    // blst_p2_tile_pippenger_BGMW95(&ret, \
+    //                                 points_ptr, \
+    //                                 npoints, \
+    //                                 scalars, booth_signs,\
+    //                                 buckets,\
+    //                                 EXPONENT_OF_q_BGMW95);
     delete[] buckets;
     delete[] points_ptr;
     delete[] booth_signs;    
@@ -362,8 +362,8 @@ blst_p2_affine pippenger_variant_q_over_5_CHES_better_scalar_conversion(uint256_
     buckets = new blst_p2xyzz [B_SIZE];
     blst_p2 ret;
 
-    blst_p2_tile_pippenger_d_CHES(&ret, points_ptr, npoints, scalars, booth_signs,\
-                                         buckets, BUCKET_SET, BUCKET_VALUE_TO_ITS_INDEX , B_SIZE, d_MAX_DIFF);
+    // blst_p2_tile_pippenger_d_CHES(&ret, points_ptr, npoints, scalars, booth_signs,\
+    //                                      buckets, BUCKET_SET, BUCKET_VALUE_TO_ITS_INDEX , B_SIZE, d_MAX_DIFF);
     delete[] buckets;
     delete[] points_ptr;
     delete[] booth_signs;    
@@ -400,7 +400,7 @@ blst_p2_affine pippenger_blst_built_in(uint256_t scalars_array[]){
     blst_p2 ret; // Mont coordinates
     size_t nbits = 255;
 
-    blst_p2s_mult_pippenger(&ret, points_ptr, N_POINTS, scalars_ptr, nbits, SCRATCH);   
+    // blst_p2s_mult_pippenger(&ret, points_ptr, N_POINTS, scalars_ptr, nbits, SCRATCH);   
 
     delete[] SCRATCH;
     delete[] points_ptr;
@@ -413,7 +413,7 @@ blst_p2_affine pippenger_blst_built_in(uint256_t scalars_array[]){
 }
 
 void test_pippengers(){
-    std::cout << "\nPIPPENGERS TEST OVER G2 for NPOINTS:  2**" << N_EXP << std::endl;
+    std::cout << "\nPIPPENGERS PREPARATION TEST OVER G2 for NPOINTS:  2**" << N_EXP << std::endl;
 
     size_t TEST_NUM = 5;
     size_t LOOP_NUM;

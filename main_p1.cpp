@@ -32,13 +32,15 @@ A) Define global variables and their initializations
 
 #include "config_file_n_exp_8.h" //define configuration in a seperate file.
 
+digit_decomposition* DIGIT_CONVERSION_HASH_TABLE;
+#include "auxiliaryfunc.h"
+
 std::set<int> MULTI_SET = {1, 2, 3};
 int* BUCKET_SET;
 int* BUCKET_VALUE_TO_ITS_INDEX; 
 
-digit_decomposition* DIGIT_CONVERSION_HASH_TABLE;
 
-#include "auxiliaryfunc.h"
+
 
 blst_p1_affine* FIX_POINTS_LIST;
 blst_p1_affine* PRECOMPUTATION_POINTS_LIST_3nh;
@@ -64,7 +66,7 @@ void free_init_fix_point_list(){
     delete[] FIX_POINTS_LIST;
 }
 
-blst_p1_affine single_scalar_multiplication(uint256_t scalar, blst_p1_affine Q){
+blst_p1_affine single_scalar_multiplication(uint256_t scalar, const blst_p1_affine Q){
 
     blst_p1_affine aret; 
     blst_p1 ret = {0,1,0}; // ret = INFINITY; 
@@ -180,14 +182,17 @@ blst_p1_affine pippenger_variant_q_over_5_CHES_prefetch_2step_ahead(uint256_t sc
 
     int* scalars;
     scalars = new int [npoints+2]; // add 2 slot redundancy for prefetch
-
-    int* scalars_p = scalars;
+    scalars[npoints] = 0; // initialization
+    scalars[npoints+1] = 0;
 
     std::array< int, h_LEN_SCALAR> ret_std_expr;
+
+    int idx;
     for(int i = 0; i< N_POINTS; ++i){
         trans_uint256_t_to_standard_q_ary_expr(ret_std_expr, scalars_array[i]);
         for(int j = 0; j< h_LEN_SCALAR; ++j){
-            *scalars_p++ = ret_std_expr[j];
+            idx = i*h_LEN_SCALAR +j;
+            scalars[idx] = ret_std_expr[j];
         }
     }
 
@@ -215,14 +220,16 @@ blst_p1_affine pippenger_variant_q_over_5_CHES_prefetch_2step_ahead(uint256_t sc
     return res_affine;
 }
 
-blst_p1_affine pippenger_variant_q_over_5_CHES_3nh(uint256_t scalars_array[]){
+blst_p1_affine pippenger_variant_q_over_5_CHES(uint256_t scalars_array[]){
     
     std::array<std::array< int, 2>, h_LEN_SCALAR> ret_MB_expr;
 
     uint64_t npoints = N_POINTS*h_LEN_SCALAR;
 
     int* scalars;
-    scalars = new int [npoints+2]; // add 2 slot redundancy for prefetch, 20221010 very important
+    scalars = new int [npoints+1]; // add 1 slot redundancy for prefetch, 20221010 very important
+    scalars[npoints] = 0;  //
+
     unsigned char* booth_signs; // it acts as a bool type
     booth_signs = new unsigned char [npoints];
 
@@ -323,6 +330,50 @@ blst_p1_affine pippenger_variant_BGMW95(uint256_t scalars_array[]){
     return res_affine;
 }
 
+blst_p1_affine pippenger_variant_q_over_5_CHES_better_scalar_conversion(uint256_t scalars_array[]){
+    
+    uint64_t npoints = N_POINTS*h_LEN_SCALAR;
+
+    int* scalars;
+    scalars = new int [npoints+1]; // add 1 slot redundancy for prefetch
+    scalars[npoints] = 0; 
+
+    // Convert a scalar to its standard q-ary form
+    std::array< int, h_LEN_SCALAR> ret_std_expr;
+    int* scalars_p = scalars;
+     for(int i = 0; i< N_POINTS; ++i){
+        trans_uint256_t_to_standard_q_ary_expr(ret_std_expr, scalars_array[i]);
+        for(int j = 0; j< h_LEN_SCALAR; ++j){
+            *scalars_p++ = ret_std_expr[j];
+        }
+    }
+    
+    unsigned char* booth_signs; // it acts as a bool type
+    booth_signs = new unsigned char [npoints];
+
+    blst_p1_affine** points_ptr;
+    points_ptr = new blst_p1_affine* [npoints];
+
+    // convert scalar from standard q-ary form to MB representation, and obtain the scalars, booth_signs, and points_ptr.
+    blst_p1_construct_nh_scalars_nh_points(scalars, booth_signs, points_ptr, npoints,\
+                            PRECOMPUTATION_POINTS_LIST_3nh, DIGIT_CONVERSION_HASH_TABLE);
+
+    blst_p1xyzz* buckets;
+    buckets = new blst_p1xyzz [B_SIZE];
+    blst_p1 ret;
+
+    blst_p1_tile_pippenger_d_CHES(&ret, points_ptr, npoints, scalars, booth_signs,\
+                                         buckets, BUCKET_SET, BUCKET_VALUE_TO_ITS_INDEX , B_SIZE, d_MAX_DIFF);
+    delete[] buckets;
+    delete[] points_ptr;
+    delete[] booth_signs;    
+    delete[] scalars;    
+
+    blst_p1_affine res_affine;
+    blst_p1_to_affine( &res_affine, &ret);
+    return res_affine;
+}
+
 blst_p1_affine pippenger_blst_built_in(uint256_t scalars_array[]){
 
     blst_scalar* scalars;
@@ -361,60 +412,27 @@ blst_p1_affine pippenger_blst_built_in(uint256_t scalars_array[]){
     return res_affine;
 }
 
-void test_scalar_conversion_bench(uint256_t scalars_array[]){
-
-    size_t TEST_NUM = 10;
-
-    if(N_EXP <= 16) TEST_NUM = 50;
-
-    scalar_MB_expr ret_MB_expr;
-
-    auto st = std::chrono::steady_clock::now();
-    for(int j=0; j< TEST_NUM; ++j){
-        for(size_t i = 0; i< N_POINTS; ++i)
-            {
-            trans_uint256_t_to_MB_radixq_expr(ret_MB_expr,scalars_array[i]);   
-            }
-    }
-    auto ed = std::chrono::steady_clock::now();   
-    std::chrono::microseconds diff = std::chrono::duration_cast<std::chrono::microseconds>(ed -st); 
-    std::cout << "CHES q_over_5 scalars conversion clock time elapse is: " << std::dec << diff.count()/TEST_NUM << " us"<< std::endl;
-    // print(ret_MB_expr);
-
-    std::array< int, h_BGMW95> ret_qhalf_expr;
-
-    st = std::chrono::steady_clock::now();
-    for(int j=0; j< TEST_NUM; ++j){
-        for(size_t i = 0; i< N_POINTS; ++i)
-            {
-            trans_uint256_t_to_qhalf_expr(ret_qhalf_expr, scalars_array[i]);   
-            }
-    }
-    ed = std::chrono::steady_clock::now();   
-    diff = std::chrono::duration_cast<std::chrono::microseconds>(ed - st); 
-    std::cout << "BGMW95 scalars conversion clock time elapse is: " << std::dec << diff.count()/TEST_NUM << " us \n"<< std::endl;  
-}
-
 void test_pippengers(){
     std::cout << "\nPIPPENGERS TEST OVER G1 for NPOINTS:  2**" << N_EXP << std::endl;
 
     size_t TEST_NUM = 5;
     size_t LOOP_NUM;
 
-    if(N_EXP <= 8) LOOP_NUM = 20;
+    if(N_EXP <= 8) LOOP_NUM = 40;
     else if(N_EXP <= 12) LOOP_NUM = 10;
     else if(N_EXP<= 16) LOOP_NUM = 5;
     else LOOP_NUM = 1;
     
-    std::chrono::microseconds acc_t1, acc_t2, acc_t3, acc_t4, acc_conver_q_over_5, acc_conver_bgmw, diff, min_t12; // time accumulation
+    std::chrono::microseconds acc_t1, acc_t2, acc_t3, acc_t4, acc_t5, acc_conver_q_over_5, acc_conver_bgmw, diff, min_t12; // time accumulation
     acc_t1 = std::chrono::microseconds::zero();
     acc_t2 = std::chrono::microseconds::zero();
     acc_t3 = std::chrono::microseconds::zero();
     acc_t4 = std::chrono::microseconds::zero();
+    acc_t5 = std::chrono::microseconds::zero();
 
     acc_conver_q_over_5 = std::chrono::microseconds::zero();
     acc_conver_bgmw = std::chrono::microseconds::zero();
-    blst_p1_affine ret_P_affine_1, ret_P_affine_2, ret_P_affine_3, ret_P_affine_4;
+    blst_p1_affine ret_P_affine_1, ret_P_affine_2, ret_P_affine_3, ret_P_affine_4, ret_P_affine_5;
 
 
     // Initialize SCALARS_ARRAY
@@ -434,7 +452,7 @@ void test_pippengers(){
         auto st = std::chrono::steady_clock::now();
         for(size_t i = 0; i< LOOP_NUM; ++i)
         {
-            ret_P_affine_1 = pippenger_variant_q_over_5_CHES_3nh(SCALARS_ARRAY);
+            ret_P_affine_1 = pippenger_variant_q_over_5_CHES(SCALARS_ARRAY);
         }
         auto ed = std::chrono::steady_clock::now();   
         diff = std::chrono::duration_cast<std::chrono::microseconds>(ed - st);
@@ -449,6 +467,16 @@ void test_pippengers(){
         ed = std::chrono::steady_clock::now();   
         diff = std::chrono::duration_cast<std::chrono::microseconds>(ed - st);
         acc_t2 += diff;
+
+        /* nh + q/5 method 3 */
+        st = std::chrono::steady_clock::now();
+        for(size_t i = 0; i< LOOP_NUM; ++i)
+        {
+            ret_P_affine_5 = pippenger_variant_q_over_5_CHES_better_scalar_conversion(SCALARS_ARRAY);
+        }
+        ed = std::chrono::steady_clock::now();   
+        diff = std::chrono::duration_cast<std::chrono::microseconds>(ed - st);
+        acc_t5 += diff;
 
 
         /*nh + q/2 method BGMW95*/
@@ -504,7 +532,12 @@ void test_pippengers(){
     std::cout << ret_P_affine_1.y <<std::endl;
     std::cout << std::endl;
 
-    std::cout << "2. CHES 'nh+ q/5' prfetch 2 step ahead. Wall clock time elapse is: " << std::dec << acc_t2.count()/(TEST_NUM*LOOP_NUM) << " us "<< std::endl;
+    std::cout << "2. CHES 'nh+ q/5' prefetch 2 step ahead. Wall clock time elapse is: " << std::dec << acc_t2.count()/(TEST_NUM*LOOP_NUM) << " us "<< std::endl;
+    std::cout << ret_P_affine_2.x <<std::endl;
+    std::cout << ret_P_affine_2.y <<std::endl;
+    std::cout << std::endl;
+
+    std::cout << "2*. CHES 'nh+ q/5' better scalar conversion. Wall clock time elapse is: " << std::dec << acc_t5.count()/(TEST_NUM*LOOP_NUM) << " us "<< std::endl;
     std::cout << ret_P_affine_2.x <<std::endl;
     std::cout << ret_P_affine_2.y <<std::endl;
     std::cout << std::endl;
@@ -520,14 +553,26 @@ void test_pippengers(){
     std::cout << std::endl; 
 
     min_t12 = (acc_t1> acc_t2)? acc_t2 : acc_t1; 
-    std::cout << "Improvement, blst BGMW95 vs pipp: " << float(acc_t4.count() - acc_t3.count())/float(acc_t4.count()) <<std::endl;
-    std::cout << "Improvement, blst CHES_q_over_5 vs pipp: " << float(acc_t4.count() - min_t12.count())/float(acc_t4.count()) <<std::endl;
-    std::cout << "Improvement, blst CHES_q_over_5 vs BGMW95: " << float(acc_t3.count() - min_t12.count())/float(acc_t3.count()) <<std::endl;
+    min_t12 = (min_t12 > acc_t5)? acc_t5 : min_t12; // min_t12 = min(a1,a2,a5)
 
-    std::cout << "\nCHES q_over_5 scalars conversion clock time elapse is: " << std::dec << acc_conver_q_over_5.count()/(TEST_NUM*LOOP_NUM) << " us"<< std::endl;
-    std::cout << "BGMW95 scalars conversion clock time elapse is: " << std::dec << acc_conver_bgmw.count()/(TEST_NUM*LOOP_NUM) << " us \n"<< std::endl;  
+    std::cout << "Improvement, blst BGMW95 vs pipp: " <<\
+    std::fixed << std::setprecision(3) << 100*float(acc_t4.count() - acc_t3.count())/float(acc_t4.count()) << '%' <<std::endl;
+    std::cout << "Improvement, blst CHES_q_over_5 vs pipp: " <<\
+    std::fixed << std::setprecision(3) << 100*float(acc_t4.count() - min_t12.count())/float(acc_t4.count()) << '%' <<std::endl;
+    std::cout << "Improvement, blst CHES_q_over_5 vs BGMW95: " <<\
+    std::fixed << std::setprecision(3) << 100*float(acc_t3.count() - min_t12.count())/float(acc_t3.count()) << '%' <<std::endl;
 
-    std::cout << "TEST END" <<std::endl;    
+    std::cout << "\nBGMW95 scalars conversion clock time elapse is: " <<\
+    std::dec << acc_conver_bgmw.count()/(TEST_NUM*LOOP_NUM) << " us"<< std::endl;   
+    std::cout << "It takes up what percentage of BGMW95 time: " <<\
+    std::fixed << std::setprecision(3) << 100*float(acc_conver_bgmw.count())/float(acc_t3.count()) << '%' <<std::endl;
+   
+    std::cout << "CHES q_over_5 scalars conversion clock time elapse is: " <<\
+    std::dec << acc_conver_q_over_5.count()/(TEST_NUM*LOOP_NUM) << " us"<< std::endl;
+    std::cout << "It takes up what percentage of q_over_5 time: " << \
+    std::fixed << std::setprecision(3) << 100*float(acc_conver_q_over_5.count())/float(min_t12.count()) << '%' <<std::endl;
+   
+    std::cout << "\nTEST END" <<std::endl;    
 }
 
 
