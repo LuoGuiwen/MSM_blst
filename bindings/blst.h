@@ -224,6 +224,7 @@ void blst_p1s_to_affine(blst_p1_affine dst[], const blst_p1 *const points[],
 void blst_p1s_add(blst_p1 *ret, const blst_p1_affine *const points[],
                                 size_t npoints);
 
+
 size_t blst_p1s_mult_wbits_precompute_sizeof(size_t wbits, size_t npoints);
 void blst_p1s_mult_wbits_precompute(blst_p1_affine table[], size_t wbits,
                                     const blst_p1_affine *const points[],
@@ -239,11 +240,124 @@ size_t blst_p1s_mult_pippenger_scratch_sizeof(size_t npoints);
 void blst_p1s_mult_pippenger(blst_p1 *ret, const blst_p1_affine *const points[],
                              size_t npoints, const byte *const scalars[],
                              size_t nbits, limb_t *scratch);
-
 void blst_p1s_tile_pippenger(blst_p1 *ret, const blst_p1_affine *const points[],
                              size_t npoints, const byte *const scalars[],
                              size_t nbits, limb_t *scratch,
                              size_t bit0, size_t window);
+
+
+// Guiwen added 2022 October
+
+typedef struct { blst_fp x, y, zzz, zz; } blst_p1xyzz;
+typedef struct { blst_fp2 x, y, zzz, zz; } blst_p2xyzz;
+typedef struct {int m; int b; int alpha;} digit_decomposition;
+
+size_t blst_p1s_mult_pippenger_scratch_sizeof_CHES(size_t window); //window = 2**radixexp
+
+void blst_p1xyzz_dadd_affine(blst_p1xyzz *out,const blst_p1xyzz *in,\
+                            const blst_p1_affine *p,  unsigned char booth_sign);
+
+void blst_p1xyzz_dadd(blst_p1xyzz *p3, const blst_p1xyzz *p1, \
+                                              const blst_p1xyzz *p2);
+
+void blst_p1xyzz_to_Jacobian(blst_p1 *out, const blst_p1xyzz *in);
+
+void blst_p1_prefetch_CHES(const blst_p1xyzz buckets[], size_t booth_idx);
+
+void blst_p1_to_xyzz(blst_p1xyzz *out, blst_p1 *in);
+
+void blst_p1_bucket_CHES(blst_p1xyzz buckets[], int booth_idx, const blst_p1_affine *p, unsigned char booth_sign);
+                
+void blst_p1_integrate_buckets_accumulation_d_CHES(blst_p1 *out, blst_p1xyzz buckets[], int bucket_set_ascend[],\
+                                                    size_t bucket_set_size, int d_max);
+
+void blst_p1_construct_nh_scalars_nh_points(int nh_scalars[], unsigned char booth_signs[], \
+                    blst_p1_affine* nh_points_ptr[], const size_t npoints, blst_p1_affine precomputation_points_list_3nh[],\
+                    const digit_decomposition digit_conversion_hash_table[]);
+
+void blst_p1_tile_pippenger_d_CHES(blst_p1 *ret, \
+                                    const blst_p1_affine *const points[], \
+                                    size_t npoints, \
+                                    const int scalars[], const unsigned char booth_signs[], \
+                                    blst_p1xyzz buckets[], int bucket_set_ascend[], int bucket_value_to_its_index[],\
+                                    size_t bucket_set_size, int d_max);
+
+void blst_p1_tile_pippenger_d_CHES_noindexhash(blst_p1 *ret, \
+                                    const blst_p1_affine *const points[], \
+                                    size_t npoints, \
+                                    const int scalars[], const unsigned char booth_signs[], \
+                                    blst_p1xyzz buckets[], int bucket_set_ascend[],\
+                                    size_t bucket_set_size, int d_max);
+
+void blst_p1_tile_pippenger_CHES_prefetch_2step_ahead_input_std_scalar(blst_p1 *ret, \
+                                    const blst_p1_affine precomputation_points_list_3nh[], \
+                                    size_t npoints, \
+                                    int scalars[], digit_decomposition digit_conversion_hash_table[], blst_p1xyzz buckets[],\
+                                    int bucket_set_ascend[], int bucket_value_to_its_index[],\
+                                    size_t bucket_set_size, int d_max);
+
+void blst_p1_tile_pippenger_BGMW95(blst_p1 *ret, \
+                                    const blst_p1_affine *const points[], \
+                                    size_t npoints, \
+                                    const int scalars[], const unsigned char booth_signs[],\
+                                    blst_p1xyzz buckets[],\
+                                    size_t q_exponent);
+
+/// ---------- ///
+size_t blst_p2s_mult_pippenger_scratch_sizeof_CHES(size_t window); //window = 2**radixexp
+
+void blst_p2xyzz_dadd_affine(blst_p2xyzz *out,const blst_p2xyzz *in,\
+                            const blst_p2_affine *p,  unsigned char booth_sign);
+
+void blst_p2xyzz_dadd(blst_p2xyzz *p3, const blst_p2xyzz *p1, \
+                                              const blst_p2xyzz *p2);
+
+void blst_p2xyzz_to_Jacobian(blst_p2 *out, const blst_p2xyzz *in);
+
+void blst_p2_prefetch_CHES(const blst_p2xyzz buckets[], size_t booth_idx);
+
+void blst_p2_to_xyzz(blst_p2xyzz *out, blst_p2 *in);
+
+void blst_p2_bucket_CHES(blst_p2xyzz buckets[], int booth_idx, const blst_p2_affine *p, unsigned char booth_sign);
+                
+void blst_p2_integrate_buckets_accumulation_d_CHES(blst_p2 *out, blst_p2xyzz buckets[], int bucket_set_ascend[],\
+                                                    size_t bucket_set_size, int d_max);
+
+void blst_p2_construct_nh_scalars_nh_points(int nh_scalars[], unsigned char booth_signs[], \
+                    blst_p2_affine* nh_points_ptr[], const size_t npoints, blst_p2_affine precomputation_points_list_3nh[],\
+                    const digit_decomposition digit_conversion_hash_table[]);
+
+
+void blst_p2_tile_pippenger_d_CHES(blst_p2 *ret, \
+                                    const blst_p2_affine *const points[], \
+                                    size_t npoints, \
+                                    const int scalars[], const unsigned char booth_signs[], \
+                                    blst_p2xyzz buckets[], int bucket_set_ascend[], int bucket_value_to_its_index[],\
+                                    size_t bucket_set_size, int d_max);
+
+void blst_p2_tile_pippenger_d_CHES_noindexhash(blst_p2 *ret, \
+                                    const blst_p2_affine *const points[], \
+                                    size_t npoints, \
+                                    const int scalars[], const unsigned char booth_signs[], \
+                                    blst_p2xyzz buckets[], int bucket_set_ascend[],\
+                                    size_t bucket_set_size, int d_max);
+
+void blst_p2_tile_pippenger_CHES_prefetch_2step_ahead_input_std_scalar(blst_p2 *ret, \
+                                    const blst_p2_affine precomputation_points_list_3nh[], \
+                                    size_t npoints, \
+                                    int scalars[], digit_decomposition digit_conversion_hash_table[], blst_p2xyzz buckets[],\
+                                    int bucket_set_ascend[], int bucket_value_to_its_index[],\
+                                    size_t bucket_set_size, int d_max);
+
+void blst_p2_tile_pippenger_BGMW95(blst_p2 *ret, \
+                                    const blst_p2_affine *const points[], \
+                                    size_t npoints, \
+                                    const int scalars[], const unsigned char booth_signs[],\
+                                    blst_p2xyzz buckets[],\
+                                    size_t q_exponent);
+/// ---------- ///
+
+
 
 void blst_p2s_to_affine(blst_p2_affine dst[], const blst_p2 *const points[],
                         size_t npoints);
@@ -473,7 +587,7 @@ extern const blst_p1_affine BLS12_381_NEG_G1;
 extern const blst_p2_affine BLS12_381_G2;
 extern const blst_p2_affine BLS12_381_NEG_G2;
 
-// #include "blst_aux.h"
+
 
 #ifdef __cplusplus
 }
