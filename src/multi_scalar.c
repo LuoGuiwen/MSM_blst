@@ -9,6 +9,7 @@
 
 
 typedef u_int32_t uint32_t; // On ubuntu system, it might be no uint32_t
+typedef struct {int m; int b; int alpha;} digit_decomposition;
 
 /*
  * Infinite point among inputs would be devastating. Shall we change it?
@@ -667,6 +668,83 @@ void prefix##_tile_pippenger_d_CHES_noindexhash(ptype *ret, \
                                     bucket_set_size, d_max);\
 }\
 \
+void prefix##_tile_pippenger_CHES_prefetch_2step_ahead_input_std_scalar(ptype *ret, \
+                                    const ptype##_affine precomputation_points_list_3nh[], \
+                                    size_t npoints, \
+                                    int scalars[], digit_decomposition digit_conversion_hash_table[], ptype##xyzz buckets[],\
+                                    int bucket_set_ascend[], int bucket_value_to_its_index[],\
+                                    size_t bucket_set_size, int d_max){\
+    \
+    int  point_idx, point_idx_nxt, booth_idx, booth_idx_nxt;\
+    unsigned char booth_sign, booth_sign_nxt;\
+    \
+    ptype##_affine tmp_Pa;\
+    \
+    digit_decomposition tmp_tri, tmp_tri_nxt, tmp_tri_nxt2;\
+    size_t size_tri = sizeof(tmp_tri);\
+    size_t size_point = sizeof(ptype##_affine);\
+    size_t size_bucket_indx = sizeof(bucket_value_to_its_index[0]);\
+    \
+    /* point to the beginning of scalars array. */\
+    int* scalars_p = scalars;\
+    size_t i = 0;\
+    \
+    tmp_tri = digit_conversion_hash_table[*scalars_p++];\
+    booth_idx = bucket_value_to_its_index[tmp_tri.b];\
+    booth_sign = tmp_tri.alpha;\
+    if(tmp_tri.alpha) ++(*scalars_p); /* if tmp_tri.alpha == 1 */\
+    /* i = 0 */\
+    point_idx = 3*i + tmp_tri.m - 1;\
+    tmp_Pa = precomputation_points_list_3nh[point_idx];\
+    \
+    i = 1;\
+    tmp_tri_nxt = digit_conversion_hash_table[*scalars_p++];\
+    booth_idx_nxt = bucket_value_to_its_index[tmp_tri_nxt.b];\
+    booth_sign_nxt = tmp_tri_nxt.alpha;\
+    if(tmp_tri_nxt.alpha) ++(*scalars_p);\
+    /* i = 1 */ \
+    point_idx_nxt = 3*i + tmp_tri_nxt.m - 1;\
+    \
+    vec_prefetch(&precomputation_points_list_3nh[point_idx_nxt], size_point);\
+    ptype##xyzz_dadd_affine(&buckets[booth_idx], &buckets[booth_idx], &tmp_Pa, booth_sign);\
+    \
+    i = 2;\
+    tmp_tri_nxt2 = digit_conversion_hash_table[*scalars_p++];\
+    \
+    while(i < npoints){\
+        \
+        tmp_tri = tmp_tri_nxt;\
+        booth_idx = booth_idx_nxt;\
+        booth_sign = booth_sign_nxt;\
+        point_idx = point_idx_nxt;\
+        \
+        /* i == 2 */\
+        tmp_tri_nxt = tmp_tri_nxt2;\
+        booth_idx_nxt = bucket_value_to_its_index[tmp_tri_nxt.b];\
+        booth_sign_nxt = tmp_tri_nxt.alpha;  \
+        if(tmp_tri_nxt.alpha)  ++(*scalars_p);\
+        point_idx_nxt = 3*i + tmp_tri_nxt.m - 1;\
+        \
+        ++i;\
+        /* i == 3 */\
+        tmp_tri_nxt2 = digit_conversion_hash_table[*scalars_p++];\
+        \
+        vec_prefetch(&bucket_value_to_its_index[tmp_tri_nxt2.b], size_bucket_indx);\
+        vec_prefetch(&precomputation_points_list_3nh[point_idx_nxt], size_point);\
+        vec_prefetch(&buckets[booth_idx_nxt], size_point);\
+        vec_prefetch(&digit_conversion_hash_table[*scalars_p], size_tri);\
+        \
+        tmp_Pa = precomputation_points_list_3nh[point_idx];\
+        if(booth_idx) ptype##xyzz_dadd_affine(&buckets[booth_idx], &buckets[booth_idx], &tmp_Pa, booth_sign);\
+    }\
+    tmp_Pa = precomputation_points_list_3nh[point_idx_nxt];\
+    if(booth_idx_nxt) ptype##xyzz_dadd_affine(&buckets[booth_idx_nxt], &buckets[booth_idx_nxt], &tmp_Pa, booth_sign_nxt);\
+    \
+    ptype##_integrate_buckets_accumulation_d_CHES(ret, buckets, bucket_set_ascend, bucket_set_size, d_max);\
+}\
+\
+\
+\
 void prefix##_tile_pippenger_BGMW95(ptype *ret, \
                                     const ptype##_affine *const points[], \
                                     size_t npoints, \
@@ -679,9 +757,9 @@ void prefix##_tile_pippenger_BGMW95(ptype *ret, \
                                 scalars, booth_signs,\
                                 buckets,\
                                 q_exponent);\
-                                }
-
-
+                                }\
+\
+\
 /*leave an empty line below*/\
 
 DECLARE_PRIVATE_POINTXYZZ(POINTonE1, 384)

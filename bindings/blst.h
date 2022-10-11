@@ -250,6 +250,7 @@ void blst_p1s_tile_pippenger(blst_p1 *ret, const blst_p1_affine *const points[],
 
 typedef struct { blst_fp x, y, zzz, zz; } blst_p1xyzz;
 typedef struct { blst_fp2 x, y, zzz, zz; } blst_p2xyzz;
+typedef struct {int m; int b; int alpha;} digit_decomposition;
 
 size_t blst_p1s_mult_pippenger_scratch_sizeof_CHES(size_t window); //window = 2**radixexp
 
@@ -282,6 +283,13 @@ void blst_p1_tile_pippenger_d_CHES_noindexhash(blst_p1 *ret, \
                                     size_t npoints, \
                                     const int scalars[], const unsigned char booth_signs[], \
                                     blst_p1xyzz buckets[], int bucket_set_ascend[],\
+                                    size_t bucket_set_size, int d_max);
+
+void blst_p1_tile_pippenger_CHES_prefetch_2step_ahead_input_std_scalar(blst_p1 *ret, \
+                                    const blst_p1_affine precomputation_points_list_3nh[], \
+                                    size_t npoints, \
+                                    int scalars[], digit_decomposition digit_conversion_hash_table[], blst_p1xyzz buckets[],\
+                                    int bucket_set_ascend[], int bucket_value_to_its_index[],\
                                     size_t bucket_set_size, int d_max);
 
 void blst_p1_tile_pippenger_BGMW95(blst_p1 *ret, \
@@ -323,6 +331,13 @@ void blst_p2_tile_pippenger_d_CHES_noindexhash(blst_p2 *ret, \
                                     size_t npoints, \
                                     const int scalars[], const unsigned char booth_signs[], \
                                     blst_p2xyzz buckets[], int bucket_set_ascend[],\
+                                    size_t bucket_set_size, int d_max);
+
+void blst_p2_tile_pippenger_CHES_prefetch_2step_ahead_input_std_scalar(blst_p2 *ret, \
+                                    const blst_p2_affine precomputation_points_list_3nh[], \
+                                    size_t npoints, \
+                                    int scalars[], digit_decomposition digit_conversion_hash_table[], blst_p2xyzz buckets[],\
+                                    int bucket_set_ascend[], int bucket_value_to_its_index[],\
                                     size_t bucket_set_size, int d_max);
 
 void blst_p2_tile_pippenger_BGMW95(blst_p2 *ret, \

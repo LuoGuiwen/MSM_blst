@@ -121,6 +121,93 @@ void test_xyzz(){
 }
 
 
+/*Correctness has been verified*/
+blst_p1_affine pippenger_variant_CHES_primitive_implementation(uint256_t scalars_array[]){
+    
+    blst_p1xyzz* buckets;
+    buckets = new blst_p1xyzz [B_SIZE];
+    vec_zero(buckets, sizeof(buckets[0])*B_SIZE); 
+  
+
+    std::array<std::array< int, 2>, h_LEN_SCALAR> ret_MB_expr;
+   
+    for(int i = 0; i< N_POINTS; ++i){
+
+        trans_uint256_t_to_MB_radixq_expr(ret_MB_expr, scalars_array[i]);
+
+        int j = 0;
+
+        int booth_idx = BUCKET_VALUE_TO_ITS_INDEX[ret_MB_expr[j][1]];
+        int booth_idx_nxt = BUCKET_VALUE_TO_ITS_INDEX[ret_MB_expr[j+1][1]];
+        unsigned char booth_sign;
+        blst_p1_affine tmp_Pa;
+        size_t idx_i_j_m;
+
+        int m = ret_MB_expr[j][0];
+        if (m> 0) {               
+            idx_i_j_m =  3*(i*h_LEN_SCALAR+j) + m-1; 
+            tmp_Pa = PRECOMPUTATION_POINTS_LIST_3nh[idx_i_j_m];
+            booth_sign = 0;
+        }
+        else{
+            idx_i_j_m =  3*(i*h_LEN_SCALAR+j)  - m-1; 
+            tmp_Pa = PRECOMPUTATION_POINTS_LIST_3nh[idx_i_j_m];
+            booth_sign = 1;
+        }
+        blst_p1xyzz_dadd_affine(&buckets[booth_idx], &buckets[booth_idx], &tmp_Pa, booth_sign);
+        
+        ++j;
+   
+ 
+        for( ; j< h_LEN_SCALAR-1; ++j){
+            m = ret_MB_expr[j][0];
+            booth_idx = booth_idx_nxt;
+            booth_idx_nxt = BUCKET_VALUE_TO_ITS_INDEX[ret_MB_expr[j+1][1]];
+            blst_p1_prefetch_CHES(buckets, booth_idx_nxt);
+
+            if (m> 0) {               
+                idx_i_j_m =  3*(i*h_LEN_SCALAR+j) + m-1; 
+                tmp_Pa = PRECOMPUTATION_POINTS_LIST_3nh[idx_i_j_m];
+                booth_sign = 0;
+            }
+            else{
+                idx_i_j_m =  3*(i*h_LEN_SCALAR+j)  - m-1; 
+                tmp_Pa = PRECOMPUTATION_POINTS_LIST_3nh[idx_i_j_m];
+                booth_sign = 1;
+            }
+            blst_p1xyzz_dadd_affine(&buckets[booth_idx], &buckets[booth_idx], &tmp_Pa, booth_sign);
+        }
+
+        m = ret_MB_expr[j][0];
+        booth_idx = booth_idx_nxt;
+        booth_idx_nxt = BUCKET_VALUE_TO_ITS_INDEX[ret_MB_expr[j][1]];
+
+            if (m> 0) {               
+                idx_i_j_m =  3*(i*h_LEN_SCALAR+j) + m-1; 
+                tmp_Pa = PRECOMPUTATION_POINTS_LIST_3nh[idx_i_j_m];
+                booth_sign = 0;
+            }
+            else{
+                idx_i_j_m =  3*(i*h_LEN_SCALAR+j)  - m-1; 
+                tmp_Pa = PRECOMPUTATION_POINTS_LIST_3nh[idx_i_j_m];
+                booth_sign = 1;
+            }
+        blst_p1xyzz_dadd_affine(&buckets[booth_idx], &buckets[booth_idx], &tmp_Pa, booth_sign);
+    }
+    
+    blst_p1 ret;
+    blst_p1_affine res_affine;
+
+    blst_p1_integrate_buckets_accumulation_d_CHES(&ret, buckets, BUCKET_SET, B_SIZE, d_MAX_DIFF);
+    blst_p1_to_affine( &res_affine, &ret);
+
+    delete[] buckets;
+
+    return res_affine;
+}
+
+
+
 void blst_p1_tile_pippenger_CHES_q_over_5(blst_p1 *ret, \
                                     const blst_p1_affine *const points[], \
                                     size_t npoints, \
@@ -201,6 +288,199 @@ void test_three_scalar_multiplication_methods(){// Correctness has been tested.
 }
 
 
+blst_p1_affine pippenger_variant_BGMW95_blst_tile_function(uint256_t scalars_array[]){
+    
+    std::array< int, h_BGMW95> ret_std_expr;
+
+    uint64_t npoints = N_POINTS*h_BGMW95;
+
+    uint8_t* scalars;
+    scalars = new uint8_t [npoints*4];// it is required that radix is less than 2^30
+    uint8_t** scalars_ptr;
+    scalars_ptr = new uint8_t* [npoints];
+
+    blst_p1_affine** points_ptr;
+    points_ptr = new blst_p1_affine* [npoints]; 
+
+    for(int i = 0; i< N_POINTS; ++i){
+        trans_uint256_t_to_standard_q_ary_expr_BGMW95(ret_std_expr, scalars_array[i]);
+
+        for(int j = 0; j< h_BGMW95; ++j){
+            size_t idx = i*h_BGMW95 + j;
+            byte_str_from_uint32(&scalars[idx*4],ret_std_expr[j]);
+            scalars_ptr[idx] = &scalars[idx*4];
+            points_ptr[idx] =  &PRECOMPUTATION_POINTS_LIST_BGMW95[idx];
+        }
+    }
+
+    blst_p1 ret; // Mont coordinates
+
+    size_t window_width = EXPONENT_OF_q_BGMW95;
+    limb_t* scratch;
+    scratch = new limb_t [(q_RADIX_PIPPENGER_VARIANT)*sizeof(blst_p1xyzz)/sizeof(limb_t)];
+
+    blst_p1s_tile_pippenger(&ret, points_ptr, npoints, scalars_ptr, window_width, scratch, 0, window_width+1);
+
+    delete[] scratch;
+    delete[] points_ptr;  
+    delete[] scalars_ptr;  
+    delete[] scalars;  
+
+    blst_p1_affine res_affine;
+    blst_p1_to_affine( &res_affine, &ret);
+    return res_affine;
+}
+
+
+
+blst_p1_affine pippenger_variant_q_over_5_CHES_noindexhash(uint256_t scalars_array[]){
+    
+    // try to use direct hash to obtain the booth_idxx. 
+
+    std::array<std::array< int, 2>, h_LEN_SCALAR> ret_MB_expr;
+
+    uint64_t npoints = N_POINTS*h_LEN_SCALAR;
+
+    int* scalars;
+    scalars = new int [npoints];
+    unsigned char* booth_signs; // it acts as a bool type
+    booth_signs = new unsigned char [npoints];
+
+    blst_p1_affine** points_ptr;
+    points_ptr = new blst_p1_affine* [npoints]; 
+
+    for(int i = 0; i< N_POINTS; ++i){
+
+        trans_uint256_t_to_MB_radixq_expr(ret_MB_expr, scalars_array[i]);
+
+        for(int j = 0; j< h_LEN_SCALAR; ++j){
+            size_t idx = i*h_LEN_SCALAR + j;
+            int m = ret_MB_expr[j][0];
+            scalars[idx]  = ret_MB_expr[j][1];
+
+            if (m> 0) {
+                size_t idx_i_j_m =  3*idx + m-1; 
+                points_ptr[idx] = &PRECOMPUTATION_POINTS_LIST_3nh[idx_i_j_m];
+                booth_signs[idx] = 0; 
+            }
+            else{
+                size_t idx_i_j_m =  3*idx  -m - 1; 
+                points_ptr[idx] = &PRECOMPUTATION_POINTS_LIST_3nh[idx_i_j_m];
+                booth_signs[idx] = 1; 
+            }  
+        }
+    }
+    blst_p1 ret; // Mont coordinates
+
+    blst_p1xyzz* buckets;
+    buckets = new blst_p1xyzz [q_RADIX/2 +1];
+
+    blst_p1_tile_pippenger_d_CHES_noindexhash(&ret, \
+                                    points_ptr, \
+                                    npoints, \
+                                    scalars, booth_signs, \
+                                    buckets, BUCKET_SET,\
+                                    B_SIZE, d_MAX_DIFF);
+
+    delete[] buckets;
+    delete[] points_ptr;
+    delete[] booth_signs;    
+    delete[] scalars;    
+    blst_p1_affine res_affine;
+    blst_p1_to_affine( &res_affine, &ret);
+
+    return res_affine;
+}
+
+
+
+/* Correctess verified*/
+blst_p1_affine pippenger_variant_q_over_5_CHES_prefetch_1step_ahead(uint256_t scalars_array[]){
+    
+    uint64_t npoints = N_POINTS*h_LEN_SCALAR;
+
+    int* scalars;
+    scalars = new int [npoints+2];
+    int* scalar_p = scalars;
+
+    std::array< int, h_LEN_SCALAR> ret_std_expr;
+    size_t s_idx = 0;
+    for(int i = 0; i< N_POINTS; ++i){
+        trans_uint256_t_to_standard_q_ary_expr(ret_std_expr, scalars_array[i]);
+        for(int j = 0; j< h_LEN_SCALAR; ++j){
+            // std::cout << *scalars++ << std::endl;
+            scalars[s_idx++] = ret_std_expr[j];
+        }
+    }
+
+    int scalar_now, point_idx, point_idx_nxt, scalar_nxt, booth_idx, booth_idx_nxt, mul, mul_nxt, b, b_nxt;
+    unsigned char booth_sign, booth_sign_nxt;
+    blst_p1_affine tmp_Pa;
+    blst_p1xyzz* buckets;
+    buckets = new blst_p1xyzz [B_SIZE];
+    vec_zero(buckets, sizeof(buckets[0])*B_SIZE); 
+  
+    digit_decomposition tmp_tri, tmp_tri_nxt;
+    size_t size_tri = sizeof(tmp_tri);
+    size_t size_point = sizeof(blst_p1_affine);
+
+    size_t i = 0;
+
+    tmp_tri = DIGIT_CONVERSION_HASH_TABLE[scalars[i]];
+    booth_idx = BUCKET_VALUE_TO_ITS_INDEX[tmp_tri.b];
+    booth_sign = tmp_tri.alpha;
+    if(tmp_tri.alpha) scalars[i+1] +=1; // if tmp_tri[2] == 1
+    // i = 0
+    point_idx = 3*i + tmp_tri.m - 1;
+    tmp_Pa = PRECOMPUTATION_POINTS_LIST_3nh[point_idx];
+
+    i = 1;
+    tmp_tri_nxt = DIGIT_CONVERSION_HASH_TABLE[scalars[i]];
+    booth_idx_nxt = BUCKET_VALUE_TO_ITS_INDEX[tmp_tri_nxt.b];  
+    booth_sign_nxt = tmp_tri_nxt.alpha;  
+    if(tmp_tri_nxt.alpha) scalars[i+1] +=1;
+    // i = 1
+    point_idx_nxt = 3*i + tmp_tri_nxt.m - 1;
+    vec_prefetch(&PRECOMPUTATION_POINTS_LIST_3nh[point_idx_nxt], size_point);
+    blst_p1xyzz_dadd_affine(&buckets[booth_idx], &buckets[booth_idx], &tmp_Pa, booth_sign);
+
+    for( i = 2; i < npoints; ++i){
+
+        tmp_tri = tmp_tri_nxt;
+        booth_idx = booth_idx_nxt;
+        booth_sign = booth_sign_nxt;
+        point_idx = point_idx_nxt;
+       
+        tmp_tri_nxt = DIGIT_CONVERSION_HASH_TABLE[scalars[i]];
+        //i == 2
+        booth_idx_nxt = BUCKET_VALUE_TO_ITS_INDEX[tmp_tri_nxt.b];  
+        booth_sign_nxt = tmp_tri_nxt.alpha;  
+        if(tmp_tri_nxt.alpha) scalars[i+1] +=1;
+
+        point_idx_nxt = 3*i + tmp_tri_nxt.m - 1;
+
+        vec_prefetch(&PRECOMPUTATION_POINTS_LIST_3nh[point_idx_nxt], size_point);
+        vec_prefetch(&buckets[booth_idx_nxt], size_point);
+
+        tmp_Pa = PRECOMPUTATION_POINTS_LIST_3nh[point_idx];
+        if(booth_idx) blst_p1xyzz_dadd_affine(&buckets[booth_idx], &buckets[booth_idx], &tmp_Pa, booth_sign);
+    }
+    tmp_Pa = PRECOMPUTATION_POINTS_LIST_3nh[point_idx_nxt];
+    if(booth_idx_nxt) blst_p1xyzz_dadd_affine(&buckets[booth_idx_nxt], &buckets[booth_idx_nxt], &tmp_Pa, booth_sign_nxt);
+
+    blst_p1 ret; // Mont coordinates
+    blst_p1_affine res_affine;
+    blst_p1_integrate_buckets_accumulation_d_CHES(&ret, buckets, BUCKET_SET, B_SIZE, d_MAX_DIFF);
+    blst_p1_to_affine( &res_affine, &ret);
+    
+    delete[] buckets; 
+    delete[] scalars;    
+
+    return res_affine;
+}
+
+
+
 blst_p1 single_scalar_multiplication(uint256_t scalar, blst_p1 Q){
 
     blst_p1 ret = G1_INFINITY; // ret = G1_INFINITY; 
@@ -248,6 +528,82 @@ void trivial_mult_scalar_multiplication(blst_p1 *ret, const blst_p1_affine *cons
         }          
 
     ret = &ret2;                 
+}
+
+
+
+void pippenger_tile_CHES_prefetch_2step_ahead_input_std_scalar(blst_p1 *ret, \
+                                    const blst_p1_affine PRECOMPUTATION_POINTS_LIST_3nh[], \
+                                    size_t npoints, \
+                                    int scalars[], digit_decomposition DIGIT_CONVERSION_HASH_TABLE[], blst_p1xyzz buckets[],\
+                                    int bucket_set_ascend[], int BUCKET_VALUE_TO_ITS_INDEX[],\
+                                    size_t bucket_set_size, int d_max){
+    
+    int  point_idx, point_idx_nxt, booth_idx, booth_idx_nxt;
+    unsigned char booth_sign, booth_sign_nxt;
+    
+    blst_p1_affine tmp_Pa;
+  
+    digit_decomposition tmp_tri, tmp_tri_nxt, tmp_tri_nxt2;
+    size_t size_tri = sizeof(tmp_tri);
+    size_t size_point = sizeof(blst_p1_affine);
+
+    // point to the beginning of scalars array.
+    int* scalars_p = scalars;
+    int i = 0;
+
+    tmp_tri = DIGIT_CONVERSION_HASH_TABLE[*scalars_p++];
+    booth_idx = BUCKET_VALUE_TO_ITS_INDEX[tmp_tri.b];
+    booth_sign = tmp_tri.alpha;
+    if(tmp_tri.alpha) ++(*scalars_p); // if tmp_tri[2] == 1
+    // i = 0
+    point_idx = 3*i + tmp_tri.m - 1;
+    tmp_Pa = PRECOMPUTATION_POINTS_LIST_3nh[point_idx];
+
+    i = 1;
+    tmp_tri_nxt = DIGIT_CONVERSION_HASH_TABLE[*scalars_p++];
+    booth_idx_nxt = BUCKET_VALUE_TO_ITS_INDEX[tmp_tri_nxt.b];  
+    booth_sign_nxt = tmp_tri_nxt.alpha;  
+    if(tmp_tri_nxt.alpha) ++(*scalars_p);
+    // i = 1
+    point_idx_nxt = 3*i + tmp_tri_nxt.m - 1;
+
+    vec_prefetch(&PRECOMPUTATION_POINTS_LIST_3nh[point_idx_nxt], size_point);
+    blst_p1xyzz_dadd_affine(&buckets[booth_idx], &buckets[booth_idx], &tmp_Pa, booth_sign);
+    
+    i = 2;
+    tmp_tri_nxt2 = DIGIT_CONVERSION_HASH_TABLE[*scalars_p++];
+
+    while(i < npoints){
+
+        tmp_tri = tmp_tri_nxt;
+        booth_idx = booth_idx_nxt;
+        booth_sign = booth_sign_nxt;
+        point_idx = point_idx_nxt;
+
+        // i == 2
+        tmp_tri_nxt = tmp_tri_nxt2;
+        booth_idx_nxt = BUCKET_VALUE_TO_ITS_INDEX[tmp_tri_nxt.b];  
+        booth_sign_nxt = tmp_tri_nxt.alpha;  
+        if(tmp_tri_nxt.alpha)  ++(*scalars_p);
+        point_idx_nxt = 3*i + tmp_tri_nxt.m - 1;
+
+        ++i;
+        //i == 3
+        tmp_tri_nxt2 = DIGIT_CONVERSION_HASH_TABLE[*scalars_p++];
+
+        vec_prefetch(&BUCKET_VALUE_TO_ITS_INDEX[tmp_tri_nxt2.b], 4);
+        vec_prefetch(&PRECOMPUTATION_POINTS_LIST_3nh[point_idx_nxt], size_point);
+        vec_prefetch(&buckets[booth_idx_nxt], size_point);
+        vec_prefetch(&DIGIT_CONVERSION_HASH_TABLE[*scalars_p], size_tri);
+
+        tmp_Pa = PRECOMPUTATION_POINTS_LIST_3nh[point_idx];
+        if(booth_idx) blst_p1xyzz_dadd_affine(&buckets[booth_idx], &buckets[booth_idx], &tmp_Pa, booth_sign);
+    }
+    tmp_Pa = PRECOMPUTATION_POINTS_LIST_3nh[point_idx_nxt];
+    if(booth_idx_nxt) blst_p1xyzz_dadd_affine(&buckets[booth_idx_nxt], &buckets[booth_idx_nxt], &tmp_Pa, booth_sign_nxt);
+
+    blst_p1_integrate_buckets_accumulation_d_CHES(ret, buckets, bucket_set_ascend, bucket_set_size, d_max);
 }
 
 
