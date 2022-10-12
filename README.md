@@ -3,7 +3,11 @@
 
 Credit: This is developed on top of a modified blst library. Check the original library at [blst library](https://github.com/supranational/blst).
 
+
+
 ## Compilation
+The code is tested on intel Mac OS, on M1 Mac OS, and intel unbuntu. They can be compiled and run using the same commands as explained below. Note MSM_blst is not compatible with the original blst library since some of the source code in blst has been modified. 
+
 In the terminal under 
 <code>
 MSM_blst 
@@ -60,7 +64,7 @@ xx (8<= xx <= 24)
 </code>
 in the line 
 <pre><code> 
-#include "ches_config_files/config_file_n_exp_11.h" 
+#include "ches_config_files/config_file_n_exp_xx.h" 
 </code></pre> 
 to run the code for different number of points
 <code> 
