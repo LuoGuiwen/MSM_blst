@@ -6,7 +6,7 @@ Credit: This is developed on top of a modified blst library. Check the original 
 
 
 ## Compilation
-The code is tested on intel Mac OS, on M1 Mac OS, and intel unbuntu. They can be compiled and run using the same commands as explained below. Note MSM_blst is not compatible with the original blst library since some of the source code in blst has been modified. 
+The code is tested on intel Mac OS, on M1 Mac OS, and on intel unbuntu. They can be compiled and run using the same commands as explained below. Note MSM_blst is not compatible with the original blst library since some of the source code in blst has been modified. 
 
 In the terminal under 
 <code>
