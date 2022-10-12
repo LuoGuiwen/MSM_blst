@@ -30,7 +30,7 @@ All functions must be invoked after init_xx().
 A) Define global variables and their initializations
 ***----***/
 
-#include "config_file_n_exp_8.h" //define configuration in a seperate file.
+#include "ches_config_files/config_file_n_exp_8.h" //define configuration in a seperate file.
 
 digit_decomposition* DIGIT_CONVERSION_HASH_TABLE;
 #include "auxiliaryfunc.h"
@@ -38,9 +38,6 @@ digit_decomposition* DIGIT_CONVERSION_HASH_TABLE;
 std::set<int> MULTI_SET = {1, 2, 3};
 int* BUCKET_SET;
 int* BUCKET_VALUE_TO_ITS_INDEX; 
-
-
-
 
 blst_p1_affine* FIX_POINTS_LIST;
 blst_p1_affine* PRECOMPUTATION_POINTS_LIST_3nh;
@@ -175,51 +172,6 @@ void free_init_pippenger_CHES_q_over_5(){
 B) Define pippenger's bucket method and its variants
 ***----***/
 
-/* Correctess verified*/
-blst_p1_affine pippenger_variant_q_over_5_CHES_prefetch_2step_ahead(uint256_t scalars_array[]){
-    
-    uint64_t npoints = N_POINTS*h_LEN_SCALAR;
-
-    int* scalars;
-    scalars = new int [npoints+2]; // add 2 slot redundancy for prefetch
-    scalars[npoints] = 0; // initialization
-    scalars[npoints+1] = 0;
-
-    std::array< int, h_LEN_SCALAR> ret_std_expr;
-
-    int idx;
-    for(int i = 0; i< N_POINTS; ++i){
-        trans_uint256_t_to_standard_q_ary_expr(ret_std_expr, scalars_array[i]);
-        for(int j = 0; j< h_LEN_SCALAR; ++j){
-            idx = i*h_LEN_SCALAR +j;
-            scalars[idx] = ret_std_expr[j];
-        }
-    }
-
-    blst_p1xyzz* buckets;
-    buckets = new blst_p1xyzz [B_SIZE];
-    vec_zero(buckets, sizeof(buckets[0])*B_SIZE); 
-
-    blst_p1 ret;
-
-    // here the scalar's standard q-ary representation int scalars[], and the precomputation array PRECOMPUTATION_POINTS_LIST_3nh is
-    // directly input to the function, the MB conversion and booth_sign are dealt within the function. See multi_scalar.c for the code.
-    blst_p1_tile_pippenger_CHES_prefetch_2step_ahead_input_std_scalar(&ret, \
-                                    PRECOMPUTATION_POINTS_LIST_3nh, \
-                                    npoints, \
-                                    scalars,  DIGIT_CONVERSION_HASH_TABLE,\
-                                    buckets,\
-                                    BUCKET_SET, BUCKET_VALUE_TO_ITS_INDEX,\
-                                    B_SIZE, d_MAX_DIFF);
-  
-    delete[] buckets; 
-    delete[] scalars;    
-
-    blst_p1_affine res_affine;
-    blst_p1_to_affine( &res_affine, &ret);
-    return res_affine;
-}
-
 blst_p1_affine pippenger_variant_q_over_5_CHES(uint256_t scalars_array[]){
     
     std::array<std::array< int, 2>, h_LEN_SCALAR> ret_MB_expr;
@@ -276,6 +228,51 @@ blst_p1_affine pippenger_variant_q_over_5_CHES(uint256_t scalars_array[]){
     return res_affine;
 }
 
+
+blst_p1_affine pippenger_variant_q_over_5_CHES_integral_scalar_conversion(uint256_t scalars_array[]){
+    
+    uint64_t npoints = N_POINTS*h_LEN_SCALAR;
+
+    int* scalars;
+    scalars = new int [npoints+1]; // add 1 slot redundancy for prefetch
+    scalars[npoints] = 0; 
+
+    // Convert a scalar to its standard q-ary form
+    std::array< int, h_LEN_SCALAR> ret_std_expr;
+    int* scalars_p = scalars;
+     for(int i = 0; i< N_POINTS; ++i){
+        trans_uint256_t_to_standard_q_ary_expr(ret_std_expr, scalars_array[i]);
+        for(int j = 0; j< h_LEN_SCALAR; ++j){
+            *scalars_p++ = ret_std_expr[j];
+        }
+    }
+    
+    unsigned char* booth_signs; // it acts as a bool type
+    booth_signs = new unsigned char [npoints];
+
+    blst_p1_affine** points_ptr;
+    points_ptr = new blst_p1_affine* [npoints];
+
+    // convert scalar from standard q-ary form to MB representation, and obtain the scalars, booth_signs, and points_ptr.
+    blst_p1_construct_nh_scalars_nh_points(scalars, booth_signs, points_ptr, npoints,\
+                            PRECOMPUTATION_POINTS_LIST_3nh, DIGIT_CONVERSION_HASH_TABLE);
+
+    blst_p1xyzz* buckets;
+    buckets = new blst_p1xyzz [B_SIZE];
+    blst_p1 ret;
+
+    blst_p1_tile_pippenger_d_CHES(&ret, points_ptr, npoints, scalars, booth_signs,\
+                                         buckets, BUCKET_SET, BUCKET_VALUE_TO_ITS_INDEX , B_SIZE, d_MAX_DIFF);
+    delete[] buckets;
+    delete[] points_ptr;
+    delete[] booth_signs;    
+    delete[] scalars;    
+
+    blst_p1_affine res_affine;
+    blst_p1_to_affine( &res_affine, &ret);
+    return res_affine;
+}
+
 blst_p1_affine pippenger_variant_BGMW95(uint256_t scalars_array[]){
     
     std::array< int, h_BGMW95> ret_qhalf_expr;
@@ -324,50 +321,6 @@ blst_p1_affine pippenger_variant_BGMW95(uint256_t scalars_array[]){
     delete[] points_ptr;
     delete[] booth_signs;    
     delete[] scalars;  
-
-    blst_p1_affine res_affine;
-    blst_p1_to_affine( &res_affine, &ret);
-    return res_affine;
-}
-
-blst_p1_affine pippenger_variant_q_over_5_CHES_better_scalar_conversion(uint256_t scalars_array[]){
-    
-    uint64_t npoints = N_POINTS*h_LEN_SCALAR;
-
-    int* scalars;
-    scalars = new int [npoints+1]; // add 1 slot redundancy for prefetch
-    scalars[npoints] = 0; 
-
-    // Convert a scalar to its standard q-ary form
-    std::array< int, h_LEN_SCALAR> ret_std_expr;
-    int* scalars_p = scalars;
-     for(int i = 0; i< N_POINTS; ++i){
-        trans_uint256_t_to_standard_q_ary_expr(ret_std_expr, scalars_array[i]);
-        for(int j = 0; j< h_LEN_SCALAR; ++j){
-            *scalars_p++ = ret_std_expr[j];
-        }
-    }
-    
-    unsigned char* booth_signs; // it acts as a bool type
-    booth_signs = new unsigned char [npoints];
-
-    blst_p1_affine** points_ptr;
-    points_ptr = new blst_p1_affine* [npoints];
-
-    // convert scalar from standard q-ary form to MB representation, and obtain the scalars, booth_signs, and points_ptr.
-    blst_p1_construct_nh_scalars_nh_points(scalars, booth_signs, points_ptr, npoints,\
-                            PRECOMPUTATION_POINTS_LIST_3nh, DIGIT_CONVERSION_HASH_TABLE);
-
-    blst_p1xyzz* buckets;
-    buckets = new blst_p1xyzz [B_SIZE];
-    blst_p1 ret;
-
-    blst_p1_tile_pippenger_d_CHES(&ret, points_ptr, npoints, scalars, booth_signs,\
-                                         buckets, BUCKET_SET, BUCKET_VALUE_TO_ITS_INDEX , B_SIZE, d_MAX_DIFF);
-    delete[] buckets;
-    delete[] points_ptr;
-    delete[] booth_signs;    
-    delete[] scalars;    
 
     blst_p1_affine res_affine;
     blst_p1_to_affine( &res_affine, &ret);
@@ -459,24 +412,15 @@ void test_pippengers(){
         acc_t1 += diff;
 
         /* nh + q/5 method 2 */
+
         st = std::chrono::steady_clock::now();
         for(size_t i = 0; i< LOOP_NUM; ++i)
         {
-            ret_P_affine_2 = pippenger_variant_q_over_5_CHES_prefetch_2step_ahead(SCALARS_ARRAY);
+            ret_P_affine_2 = pippenger_variant_q_over_5_CHES_integral_scalar_conversion(SCALARS_ARRAY);
         }
         ed = std::chrono::steady_clock::now();   
         diff = std::chrono::duration_cast<std::chrono::microseconds>(ed - st);
         acc_t2 += diff;
-
-        /* nh + q/5 method 3 */
-        st = std::chrono::steady_clock::now();
-        for(size_t i = 0; i< LOOP_NUM; ++i)
-        {
-            ret_P_affine_5 = pippenger_variant_q_over_5_CHES_better_scalar_conversion(SCALARS_ARRAY);
-        }
-        ed = std::chrono::steady_clock::now();   
-        diff = std::chrono::duration_cast<std::chrono::microseconds>(ed - st);
-        acc_t5 += diff;
 
 
         /*nh + q/2 method BGMW95*/
@@ -532,12 +476,7 @@ void test_pippengers(){
     std::cout << ret_P_affine_1.y <<std::endl;
     std::cout << std::endl;
 
-    std::cout << "2. CHES 'nh+ q/5' prefetch 2 step ahead. Wall clock time elapse is: " << std::dec << acc_t2.count()/(TEST_NUM*LOOP_NUM) << " us "<< std::endl;
-    std::cout << ret_P_affine_2.x <<std::endl;
-    std::cout << ret_P_affine_2.y <<std::endl;
-    std::cout << std::endl;
-
-    std::cout << "2*. CHES 'nh+ q/5' better scalar conversion. Wall clock time elapse is: " << std::dec << acc_t5.count()/(TEST_NUM*LOOP_NUM) << " us "<< std::endl;
+    std::cout << "2. CHES 'nh+ q/5' integral scalar conversion. Wall clock time elapse is: " << std::dec << acc_t2.count()/(TEST_NUM*LOOP_NUM) << " us "<< std::endl;
     std::cout << ret_P_affine_2.x <<std::endl;
     std::cout << ret_P_affine_2.y <<std::endl;
     std::cout << std::endl;
@@ -553,7 +492,7 @@ void test_pippengers(){
     std::cout << std::endl; 
 
     min_t12 = (acc_t1> acc_t2)? acc_t2 : acc_t1; 
-    min_t12 = (min_t12 > acc_t5)? acc_t5 : min_t12; // min_t12 = min(a1,a2,a5)
+    // min_t12 = (min_t12 > acc_t5)? acc_t5 : min_t12; // min_t12 = min(a1,a2,a5)
 
     std::cout << "Improvement, blst BGMW95 vs pipp: " <<\
     std::fixed << std::setprecision(3) << 100*float(acc_t4.count() - acc_t3.count())/float(acc_t4.count()) << '%' <<std::endl;
@@ -574,7 +513,6 @@ void test_pippengers(){
    
     std::cout << "\nTEST END" <<std::endl;    
 }
-
 
 int main(){
  

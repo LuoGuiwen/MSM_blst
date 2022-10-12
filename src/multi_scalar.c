@@ -744,6 +744,7 @@ void prefix##_tile_pippenger_CHES_prefetch_2step_ahead_input_std_scalar(ptype *r
 }\
 \
 \
+\
 void prefix##_construct_nh_scalars_nh_points(int nh_scalars[], unsigned char booth_signs[], \
                     ptype##_affine* nh_points_ptr[], const size_t npoints, ptype##_affine precomputation_points_list_3nh[], const digit_decomposition digit_conversion_hash_table[]){\
 \
@@ -752,11 +753,13 @@ void prefix##_construct_nh_scalars_nh_points(int nh_scalars[], unsigned char boo
     ptype##_affine** points_p = nh_points_ptr;\
     \
     digit_decomposition tmp_tri;\
+    size_t size_tri = sizeof(tmp_tri);\
     \
     size_t point_idx;\
     size_t i = 0;\
     for(  ; i< npoints -1; ++i){\
         tmp_tri = digit_conversion_hash_table[*scalars_p];\
+        vec_prefetch(&digit_conversion_hash_table[*(scalars_p+1)], size_tri);\
         *scalars_p++ = tmp_tri.b;\
         *booth_signs_p++ = tmp_tri.alpha;\
         if(tmp_tri.alpha) ++(*scalars_p); \
