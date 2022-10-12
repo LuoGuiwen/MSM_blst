@@ -26,12 +26,18 @@ All functions must be invoked after init_xx().
 #include <array>
 // don't use namespace std, there is a uint_8 and byte definition that are not compatible with std.
 
+
+/***----***
+Define configuration
+***----***/
+#include "ches_config_files/config_file_n_exp_11.h" //define configuration in a seperate file.
+bool TEST_PIPPENGER_Q_OVER_5_CHES = 1;
+bool TEST_PIPPENGER_BGMW95 = 1; // Due to the momory size limitation, some time we need to switch off one of the test.
+
+
 /***----***
 A) Define global variables and their initializations
 ***----***/
-
-#include "ches_config_files/config_file_n_exp_8.h" //define configuration in a seperate file.
-
 digit_decomposition* DIGIT_CONVERSION_HASH_TABLE;
 #include "auxiliaryfunc.h"
 
@@ -108,7 +114,6 @@ void free_init_pippenger_BGMW95(){
 }
 
 void init_pippenger_CHES_q_over_5(){
-
     //Initialize BUCKET_SET and BUCKET_VALUE_TO_ITS_INDEX 
     BUCKET_SET = new int[B_SIZE];
     construct_bucket_set(BUCKET_SET, q_RADIX, a_LEADING_TERM);
@@ -135,7 +140,7 @@ void init_pippenger_CHES_q_over_5(){
     }
     std::cout<< "DIGIT_CONVERSION_HASH_TABLE constructed." <<std::endl;
     
-// ### Initialize the precomputation ###
+    // ### Initialize the precomputation ###
    PRECOMPUTATION_POINTS_LIST_3nh = new blst_p1_affine [3*N_POINTS*h_LEN_SCALAR];
 
     auto st = std::chrono::steady_clock::now();
@@ -385,6 +390,10 @@ void test_pippengers(){
 
     acc_conver_q_over_5 = std::chrono::microseconds::zero();
     acc_conver_bgmw = std::chrono::microseconds::zero();
+
+    auto st = std::chrono::steady_clock::now();
+    auto ed = std::chrono::steady_clock::now();   
+    
     blst_p1_affine ret_P_affine_1, ret_P_affine_2, ret_P_affine_3, ret_P_affine_4, ret_P_affine_5;
 
 
@@ -401,38 +410,40 @@ void test_pippengers(){
         for(size_t i = 0; i < N_POINTS; ++i)\
             SCALARS_ARRAY[i] = random_scalar_less_than_r();
 
-        /*nh + q/5 method */
-        auto st = std::chrono::steady_clock::now();
-        for(size_t i = 0; i< LOOP_NUM; ++i)
-        {
-            ret_P_affine_1 = pippenger_variant_q_over_5_CHES(SCALARS_ARRAY);
+        if(TEST_PIPPENGER_Q_OVER_5_CHES){
+            /*nh + q/5 method */
+            st = std::chrono::steady_clock::now();
+            for(size_t i = 0; i< LOOP_NUM; ++i)
+            {
+                ret_P_affine_1 = pippenger_variant_q_over_5_CHES(SCALARS_ARRAY);
+            }
+            ed = std::chrono::steady_clock::now();   
+            diff = std::chrono::duration_cast<std::chrono::microseconds>(ed - st);
+            acc_t1 += diff;
+
+            /* nh + q/5 method 2 */
+
+            st = std::chrono::steady_clock::now();
+            for(size_t i = 0; i< LOOP_NUM; ++i)
+            {
+                ret_P_affine_2 = pippenger_variant_q_over_5_CHES_integral_scalar_conversion(SCALARS_ARRAY);
+            }
+            ed = std::chrono::steady_clock::now();   
+            diff = std::chrono::duration_cast<std::chrono::microseconds>(ed - st);
+            acc_t2 += diff;
         }
-        auto ed = std::chrono::steady_clock::now();   
-        diff = std::chrono::duration_cast<std::chrono::microseconds>(ed - st);
-        acc_t1 += diff;
 
-        /* nh + q/5 method 2 */
-
-        st = std::chrono::steady_clock::now();
-        for(size_t i = 0; i< LOOP_NUM; ++i)
-        {
-            ret_P_affine_2 = pippenger_variant_q_over_5_CHES_integral_scalar_conversion(SCALARS_ARRAY);
+        if(TEST_PIPPENGER_BGMW95){
+            /*nh + q/2 method BGMW95*/
+            st = std::chrono::steady_clock::now();
+            for(size_t i = 0; i< LOOP_NUM; ++i)
+            {
+                ret_P_affine_3 = pippenger_variant_BGMW95(SCALARS_ARRAY);
+            }
+            ed = std::chrono::steady_clock::now();   
+            diff = std::chrono::duration_cast<std::chrono::microseconds>(ed - st);
+            acc_t3 += diff;
         }
-        ed = std::chrono::steady_clock::now();   
-        diff = std::chrono::duration_cast<std::chrono::microseconds>(ed - st);
-        acc_t2 += diff;
-
-
-        /*nh + q/2 method BGMW95*/
-        st = std::chrono::steady_clock::now();
-        for(size_t i = 0; i< LOOP_NUM; ++i)
-        {
-            ret_P_affine_3 = pippenger_variant_BGMW95(SCALARS_ARRAY);
-        }
-        ed = std::chrono::steady_clock::now();   
-        diff = std::chrono::duration_cast<std::chrono::microseconds>(ed - st);
-        acc_t3 += diff;
-
 
         /*blst pippenger h(n+q/2) method*/
         st = std::chrono::steady_clock::now();    
@@ -445,46 +456,54 @@ void test_pippengers(){
         acc_t4 += diff;
 
         /* scalar conversion benchmark*/
-        st = std::chrono::steady_clock::now();
-        for(int j=0; j< LOOP_NUM; ++j){
-            for(size_t i = 0; i< N_POINTS; ++i)
-                {
-                trans_uint256_t_to_MB_radixq_expr(ret_MB_expr, SCALARS_ARRAY[i]);   
-                }
+        if(TEST_PIPPENGER_BGMW95){ 
+            st = std::chrono::steady_clock::now();
+            for(int j=0; j< LOOP_NUM; ++j){
+                for(size_t i = 0; i< N_POINTS; ++i)
+                    {
+                    trans_uint256_t_to_qhalf_expr(ret_qhalf_expr, SCALARS_ARRAY[i]);     
+                    }
+            }
+            ed = std::chrono::steady_clock::now();   
+            diff = std::chrono::duration_cast<std::chrono::microseconds>(ed - st);
+            acc_conver_bgmw += diff;
         }
-        ed = std::chrono::steady_clock::now();   
-        diff = std::chrono::duration_cast<std::chrono::microseconds>(ed - st);
-        acc_conver_q_over_5 += diff;
 
-        st = std::chrono::steady_clock::now();
-        for(int j=0; j< LOOP_NUM; ++j){
-            for(size_t i = 0; i< N_POINTS; ++i)
-                {
-                trans_uint256_t_to_qhalf_expr(ret_qhalf_expr, SCALARS_ARRAY[i]);     
-                }
+        if(TEST_PIPPENGER_Q_OVER_5_CHES){ 
+            st = std::chrono::steady_clock::now();
+            for(int j=0; j< LOOP_NUM; ++j){
+                for(size_t i = 0; i< N_POINTS; ++i)
+                    {
+                    trans_uint256_t_to_MB_radixq_expr(ret_MB_expr, SCALARS_ARRAY[i]);   
+                    }
+            }
+            ed = std::chrono::steady_clock::now();   
+            diff = std::chrono::duration_cast<std::chrono::microseconds>(ed - st);
+            acc_conver_q_over_5 += diff;
         }
-        ed = std::chrono::steady_clock::now();   
-        diff = std::chrono::duration_cast<std::chrono::microseconds>(ed - st);
-        acc_conver_bgmw += diff;
 
         std::cout <<  "First scalar: " << SCALARS_ARRAY[0] << std::endl; 
         delete[] SCALARS_ARRAY;
     }
 
-    std::cout << "\n1. CHES 'nh+ q/5'. Wall clock time elapse is: " << std::dec << acc_t1.count()/(TEST_NUM*LOOP_NUM) << " us "<< std::endl;
-    std::cout << ret_P_affine_1.x <<std::endl;
-    std::cout << ret_P_affine_1.y <<std::endl;
-    std::cout << std::endl;
+    if(TEST_PIPPENGER_Q_OVER_5_CHES){
+        std::cout << "\n1. CHES 'nh+ q/5'. Wall clock time elapse is: " << std::dec << acc_t1.count()/(TEST_NUM*LOOP_NUM) << " us "<< std::endl;
+        std::cout << ret_P_affine_1.x <<std::endl;
+        std::cout << ret_P_affine_1.y <<std::endl;
+        std::cout << std::endl;
 
-    std::cout << "2. CHES 'nh+ q/5' integral scalar conversion. Wall clock time elapse is: " << std::dec << acc_t2.count()/(TEST_NUM*LOOP_NUM) << " us "<< std::endl;
-    std::cout << ret_P_affine_2.x <<std::endl;
-    std::cout << ret_P_affine_2.y <<std::endl;
-    std::cout << std::endl;
+        std::cout << "2. CHES 'nh+ q/5' integral scalar conversion. Wall clock time elapse is: " << std::dec << acc_t2.count()/(TEST_NUM*LOOP_NUM) << " us "<< std::endl;
+        std::cout << ret_P_affine_2.x <<std::endl;
+        std::cout << ret_P_affine_2.y <<std::endl;
+        std::cout << std::endl;
+    }
 
-    std::cout << "3. pippenger_variant_BGMW95. Wall clock time elapse is: " << std::dec << acc_t3.count()/(TEST_NUM*LOOP_NUM) << " us "<< std::endl;
-    std::cout << ret_P_affine_3.x <<std::endl;
-    std::cout << ret_P_affine_3.y <<std::endl;
-    std::cout << std::endl;  
+    if(TEST_PIPPENGER_BGMW95){
+        std::cout << "3. pippenger_variant_BGMW95. Wall clock time elapse is: " << std::dec << acc_t3.count()/(TEST_NUM*LOOP_NUM) << " us "<< std::endl;
+        std::cout << ret_P_affine_3.x <<std::endl;
+        std::cout << ret_P_affine_3.y <<std::endl;
+        std::cout << std::endl;  
+    }
 
     std::cout << "4. pippenger_blst_built_in. Wall clock time elapse is: " << std::dec << acc_t4.count()/(TEST_NUM*LOOP_NUM) << " us "<< std::endl;
     std::cout << ret_P_affine_4.x <<std::endl;
@@ -494,37 +513,48 @@ void test_pippengers(){
     min_t12 = (acc_t1> acc_t2)? acc_t2 : acc_t1; 
     // min_t12 = (min_t12 > acc_t5)? acc_t5 : min_t12; // min_t12 = min(a1,a2,a5)
 
+    if(TEST_PIPPENGER_BGMW95){
     std::cout << "Improvement, blst BGMW95 vs pipp: " <<\
     std::fixed << std::setprecision(3) << 100*float(acc_t4.count() - acc_t3.count())/float(acc_t4.count()) << '%' <<std::endl;
+    }
+
+    if(TEST_PIPPENGER_Q_OVER_5_CHES){
     std::cout << "Improvement, blst CHES_q_over_5 vs pipp: " <<\
     std::fixed << std::setprecision(3) << 100*float(acc_t4.count() - min_t12.count())/float(acc_t4.count()) << '%' <<std::endl;
+    }
+
+    if(TEST_PIPPENGER_Q_OVER_5_CHES && TEST_PIPPENGER_BGMW95){
     std::cout << "Improvement, blst CHES_q_over_5 vs BGMW95: " <<\
     std::fixed << std::setprecision(3) << 100*float(acc_t3.count() - min_t12.count())/float(acc_t3.count()) << '%' <<std::endl;
+    }
 
+    if(TEST_PIPPENGER_BGMW95){ 
     std::cout << "\nBGMW95 scalars conversion clock time elapse is: " <<\
-    std::dec << acc_conver_bgmw.count()/(TEST_NUM*LOOP_NUM) << " us"<< std::endl;   
+    std::dec << acc_conver_bgmw.count()/(TEST_NUM*LOOP_NUM) << " us"<< std::endl;  
     std::cout << "It takes up what percentage of BGMW95 time: " <<\
     std::fixed << std::setprecision(3) << 100*float(acc_conver_bgmw.count())/float(acc_t3.count()) << '%' <<std::endl;
-   
+    }
+
+    if(TEST_PIPPENGER_Q_OVER_5_CHES){
     std::cout << "CHES q_over_5 scalars conversion clock time elapse is: " <<\
     std::dec << acc_conver_q_over_5.count()/(TEST_NUM*LOOP_NUM) << " us"<< std::endl;
     std::cout << "It takes up what percentage of q_over_5 time: " << \
     std::fixed << std::setprecision(3) << 100*float(acc_conver_q_over_5.count())/float(min_t12.count()) << '%' <<std::endl;
-   
+    }
     std::cout << "\nTEST END" <<std::endl;    
 }
 
 int main(){
  
     init_fix_point_list();
-    init_pippenger_CHES_q_over_5();
-    init_pippenger_BGMW95();
-
+    if(TEST_PIPPENGER_Q_OVER_5_CHES) init_pippenger_CHES_q_over_5();
+    if(TEST_PIPPENGER_BGMW95) init_pippenger_BGMW95();
+    
     // Test should be down between init_xx() and free_init_xx();
     test_pippengers();
 
-    free_init_pippenger_BGMW95();
-    free_init_pippenger_CHES_q_over_5();
+    if(TEST_PIPPENGER_BGMW95) free_init_pippenger_BGMW95();
+    if(TEST_PIPPENGER_Q_OVER_5_CHES) free_init_pippenger_CHES_q_over_5();
     free_init_fix_point_list();
 
     return 0;
