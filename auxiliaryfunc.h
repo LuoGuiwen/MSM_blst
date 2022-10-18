@@ -1,12 +1,12 @@
-/* 
-Define 256 bit scalar with shift operations Guiwen, 
-WARNING: shift should be no more than 32 !!! 
-*/
-
 // a simple yet useful prefetch function
 void vec_prefetch(const void *ptr, size_t len)
 {   (void)ptr; (void)len;   }
 
+
+/* 
+Define 256 bit scalar with shift operations Guiwen, 
+WARNING: shift should be no more than 32 !!! 
+*/
 class uint256_t {
     public:
 
@@ -235,6 +235,14 @@ std::ostream& operator<<(std::ostream& os, const uint64_t* b)
 }
 
 
+
+
+std::ostream& operator<<(std::ostream& os, const digit_decomposition b)
+{
+    os << std::dec << "[" << b.m << " "<< b.b<<  " "<< b.alpha<< "]";
+    return os;
+}
+
 /*
 Auxiliary Functions
 */
@@ -447,7 +455,6 @@ limb_t booth_encode(limb_t wval, size_t sz)
     /* &0x1f, but <=0x10, is index in table, rest is extended "sign" bit */
     return wval;
 }
-
 
 /* Works up to 25 bits. */
 limb_t get_wval_limb(const byte *d, size_t off, size_t bits)

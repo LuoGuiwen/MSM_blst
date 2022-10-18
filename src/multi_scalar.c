@@ -458,7 +458,7 @@ static void ptype##_tile_pippenger_d_CHES(ptype *ret, \
     }\
     point = *points;\
     booth_sign = *booth_signs;\
-    ptype##_bucket_CHES(buckets, booth_idx_nxt, point, booth_sign);/* Carefully, it must be booth_idx_nxt*/\
+    if(booth_idx) ptype##_bucket_CHES(buckets, booth_idx_nxt, point, booth_sign);/* Carefully, it must be booth_idx_nxt*/\
     ptype##_integrate_buckets_accumulation_d_CHES(ret, buckets, bucket_set_ascend, bucket_set_size, d_max);\
 }\
 \
@@ -498,7 +498,7 @@ static void ptype##_tile_pippenger_d_CHES_noindexhash(ptype *ret, \
     }\
     point = *points;\
     booth_sign = *booth_signs;\
-    ptype##_bucket_CHES(buckets, booth_idx_nxt, point, booth_sign);/* Carefully, it must be booth_idx_nxt*/\
+    ptype##_bucket_CHES(buckets, booth_idx_nxt, point, booth_sign);\
     ptype##_integrate_buckets_accumulation_d_CHES_noindexhash(ret, buckets, bucket_set_ascend, bucket_set_size, d_max);\
 }\
 \
@@ -744,6 +744,7 @@ void prefix##_tile_pippenger_CHES_prefetch_2step_ahead_input_std_scalar(ptype *r
 }\
 \
 \
+\
 void prefix##_construct_nh_scalars_nh_points(int nh_scalars[], unsigned char booth_signs[], \
                     ptype##_affine* nh_points_ptr[], const size_t npoints, ptype##_affine precomputation_points_list_3nh[], const digit_decomposition digit_conversion_hash_table[]){\
 \
@@ -752,23 +753,25 @@ void prefix##_construct_nh_scalars_nh_points(int nh_scalars[], unsigned char boo
     ptype##_affine** points_p = nh_points_ptr;\
     \
     digit_decomposition tmp_tri;\
+    size_t size_tri = sizeof(tmp_tri);\
     \
     size_t point_idx;\
     size_t i = 0;\
     for(  ; i< npoints -1; ++i){\
         tmp_tri = digit_conversion_hash_table[*scalars_p];\
+        vec_prefetch(&digit_conversion_hash_table[*(scalars_p+2)], size_tri);\
         *scalars_p++ = tmp_tri.b;\
         *booth_signs_p++ = tmp_tri.alpha;\
         if(tmp_tri.alpha) ++(*scalars_p); \
         point_idx = 3*i + tmp_tri.m - 1; /*m is always greater than 0.*/\
-        *points_p++ = &precomputation_points_list_3nh[point_idx];\
+        *points_p++ = precomputation_points_list_3nh + point_idx;\
     }\
 \
     tmp_tri = digit_conversion_hash_table[*scalars_p];\
     *scalars_p = tmp_tri.b;\
     *booth_signs_p = tmp_tri.alpha;\
     point_idx = 3*i + tmp_tri.m - 1;\
-    *points_p = &precomputation_points_list_3nh[point_idx];\
+    *points_p = precomputation_points_list_3nh + point_idx;\
     }\
 \
 \

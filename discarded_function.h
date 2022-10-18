@@ -635,6 +635,50 @@ void construct_nh_scalars_nh_points(int nh_scalars[], unsigned char booth_signs[
     }
 
 
+/* Correctess verified*/
+blst_p1_affine pippenger_variant_q_over_5_CHES_prefetch_2step_ahead(uint256_t scalars_array[]){
+    
+    uint64_t npoints = N_POINTS*h_LEN_SCALAR;
+
+    int* scalars;
+    scalars = new int [npoints+2]; // add 2 slot redundancy for prefetch
+    scalars[npoints] = 0; // initialization
+    scalars[npoints+1] = 0;
+
+    std::array< int, h_LEN_SCALAR> ret_std_expr;
+
+    int idx;
+    for(int i = 0; i< N_POINTS; ++i){
+        trans_uint256_t_to_standard_q_ary_expr(ret_std_expr, scalars_array[i]);
+        for(int j = 0; j< h_LEN_SCALAR; ++j){
+            idx = i*h_LEN_SCALAR +j;
+            scalars[idx] = ret_std_expr[j];
+        }
+    }
+
+    blst_p1xyzz* buckets;
+    buckets = new blst_p1xyzz [B_SIZE];
+    vec_zero(buckets, sizeof(buckets[0])*B_SIZE); 
+
+    blst_p1 ret;
+
+    // here the scalar's standard q-ary representation int scalars[], and the precomputation array PRECOMPUTATION_POINTS_LIST_3nh is
+    // directly input to the function, the MB conversion and booth_sign are dealt within the function. See multi_scalar.c for the code.
+    blst_p1_tile_pippenger_CHES_prefetch_2step_ahead_input_std_scalar(&ret, \
+                                    PRECOMPUTATION_POINTS_LIST_3nh, \
+                                    npoints, \
+                                    scalars,  DIGIT_CONVERSION_HASH_TABLE,\
+                                    buckets,\
+                                    BUCKET_SET, BUCKET_VALUE_TO_ITS_INDEX,\
+                                    B_SIZE, d_MAX_DIFF);
+  
+    delete[] buckets; 
+    delete[] scalars;    
+
+    blst_p1_affine res_affine;
+    blst_p1_to_affine( &res_affine, &ret);
+    return res_affine;
+}
 
 /* initialization later on using init() */
 blst_fr FR_ONE;
