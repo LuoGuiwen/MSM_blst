@@ -1,6 +1,6 @@
 /***----***
  
-ompile with: g++ -std=c++17 -o main_test -g -O2 main_p2.cpp libblst.a
+Compile with: g++ -std=c++17 -o main_test -g -O2 main_p2.cpp libblst.a
 
 If segmentation fault occurs, possibly it can be tentatively circumvented by using the following code in command line to unleash the stack restriction:
 
