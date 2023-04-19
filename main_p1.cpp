@@ -30,7 +30,7 @@ All functions must be invoked after init_xx().
 /***----***
 Define configuration
 ***----***/
-#include "ches_config_files/config_file_n_exp_10.h" //define configuration in a seperate file.
+#include "ches_config_files/config_file.h" //define configuration in a seperate file.
 bool TEST_PIPPENGER_Q_OVER_5_CHES = 1;
 bool TEST_PIPPENGER_BGMW95 = 1; // Due to the momory size limitation, some time we need to switch off one of the test.
 
