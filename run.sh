@@ -5,8 +5,8 @@ while [[ $# -gt 0 ]]
 do
     key="$1"
     case $key in
-        benchmark=*)
-        benchmark="${key#*=}"
+        group=*)
+        group="${key#*=}"
         shift
         ;;
         config=*)
@@ -19,30 +19,25 @@ do
     esac
 done
 
-if [ -z "$benchmark" ]
+if [ -z "$group" ]
 then
-    echo "Please enter a benchmark type (1 or 2)".
-    exit 1
+    group = 1
 fi
 
 # Set default name as "config" if not provided
 if [ -z "$configs" ]
 then
-    if [ "$benchmark" -eq 1 ]; then
         configs=10
-    elif [ "$benchmark" -eq 2 ]; then
-        configs=10
-    fi
 fi
 
-# Print the benchmark
-echo "The benchmark is p$benchmark"
+# Print the group
+echo "The group is p$group"
 
 # Print each config
 IFS=',' read -ra configs <<< "$configs"
 for config in "${configs[@]}"
 do
     echo "Execute with config_file_n_exp_$config.h"
-    make benchmark=$benchmark config=$config
-    ./main_test_p$benchmark
+    make group=$group config=$config
+    ./main_test_p$group
 done

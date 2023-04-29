@@ -1,9 +1,9 @@
 all: main_test
 
-ifeq ($(benchmark), 1)
+ifeq ($(group), 1) 
     objects = main_p1.cpp
 	output = main_test_p1
-else ifeq ($(benchmark), 2)
+else ifeq ($(group), 2)
     objects = main_p2.cpp
 	output = main_test_p2
 endif
@@ -18,8 +18,6 @@ libblst.a:
 
 main_test: $(objects) libblst.a set_config
 	g++ -std=c++17 -o $(output) -g -O2 $(objects) libblst.a
-
-
 
 clean:
 	rm -f libblst.a

@@ -1,8 +1,6 @@
 
 # MSM_blst
-
 Credit: This is developed on top of a modified blst library. Check the original library at [blst library](https://github.com/supranational/blst).
-
 
 ## Overview
 The arithmetic of computing multiple scalar multiplications in an elliptic
@@ -22,97 +20,78 @@ experimental result demonstrates the feasibility of accelerating the computation
 MSM over fixed points using large precomputation tables as well as the effectiveness
 of our new construction.
 
-
 ## Compilation
-The code is tested on intel Mac OS, on M1 Mac OS, and on intel unbuntu. They can be compiled and run using the same commands as explained below. Note MSM_blst is not compatible with the original blst library since some of the source code in blst has been modified. 
-
-In the terminal under 
+The code is tested on intel Mac OS, on M1 Mac OS, and on intel ubuntu. In the terminal under 
 <code>
 MSM_blst 
 </code>
 folder,
-one first runs 
+one directly runs 
 <code>
-run.sh
-</code>
-to build the modified blst library and complie and run the corresponding benchmark over
-<code>
-G_1 
+./run.sh group=1
 </code>
 or
 <code>
-G_2
+./run.sh group=2
 </code>
-respectively.
+to build the modified blst library, complie and run the corresponding test in
+<code>
+\mathbb{G}_1
+</code>
+or
+<code>
+\mathbb{G}_2
+</code>
+respectively. The number of points $n$ is $2^{10}$ by defualt. Check the next part for setting configuration.
+
+Note MSM_blst is not compatible with the original blst library since some of the source code in blst has been modified. 
+
+## Bash script parameters:
+`group`: Complie the corresponding group over in $\mathbb{G}_1$ or $\mathbb{G}_2$ respectively.
+
+`config`: Select a list of config files to be included in the algorithm. 
 
 
-### bash script parameters:
-`benchmark`: to complie the corresponding benchmark over `G1` or `G2` respectively.
+Examples:
 
-`config`: to select a list of config files to be included in the algorithm. 
-- Defualt for `G1` is only the `10` config file.
-- Defualt for `G2` is only the `16` config file
+The following command
+```
+./run.sh group=1 config=10,11,12 
+```
+execute the test for $n$-scalar multiplications in $\mathbb{G}_1$, and it will run through $n = 2^{10}, 2^{11}, 2^{12}$ sequentially.
 
-Example:
+The following command
+```
+./run.sh group=2 config=15,17
+```
+execute the test for $n$-scalar multiplications in $\mathbb{G}_2$, and it will run through $n = 2^{15}, 2^{17}$ sequentially.
 
-compile and run 3 times, each for config 8,9,10 with all their benchmark to be 1
-<pre><code>
-./run.sh benchmark=1 config=8,9,10 
-</code></pre>
-compile and run 2 times, each for config 15,16 with all their benchmark to be 2
-<pre><code>
-./run.sh benchmark=2 config=15,16 
-</code></pre>
-default config=10
-<pre><code>
-./run.sh benchmark=1 
-</code></pre>
-default config=16
-<pre><code>
-./run.sh benchmark=2      
-</code></pre>
+We have `config=10` by defualt.
 
 
-## Expected Output
+## Expected output 
 <!-- difference between the two .cpp files -->
-```main_p1.cpp``` and ```main_p1.cpp``` each contains 4 methods to do the computation. Which are
-1. Our Construction (CHES 'nh+ q/5')
-2. Our Construction with integral scalar conversion
-3. Pippenger Variant (pippenger_variant_BGMW95)
-4. Pippenger (pippenger_blst_built_in)
+```main_p1.cpp``` and ```main_p2.cpp```  have 4 methods to compute $n$-scalar multiplications. They are
+1. Our Construction (CHES 'nh+ q/5'),
+2. Our Construction with integral scalar conversion,
+3. Pippenger Variant (pippenger_variant_BGMW95),
+4. Pippenger (pippenger_blst_built_in).
 
-## Configuration
 In 
 <code>
 main_p1.cpp
 </code>
-or 
+and
 <code>
 main_p2.cpp
 </code>
 there is a 
-<pre><code>
+```
 /***----***
 Configuration
 ***----***/
-</code></pre> 
-snippet. One can adjust the integer 
-<code>
-xx (8<= xx <= 24)
-</code>
-in the line 
-<pre><code> 
-#include "ches_config_files/config_file_n_exp_xx.h" 
-</code></pre> 
-to run the code for different number of points
-<code> 
-n = 2^{xx}
-</code>.
-One can decide whether to run the test for a specific algorithm by assigning bool values to
-<code>
-TEST_PIPPENGER_Q_OVER_5_CHES
-</code>
+```
+snippet. One can decide whether to run the test for a specific algorithm by assigning bool values to
+`TEST_PIPPENGER_Q_OVER_5_CHES`
 and
-<code>
-TEST_PIPPENGER_BGMW95
-</code>.
+`TEST_PIPPENGER_BGMW95`.
