@@ -353,7 +353,7 @@ blst_p1_affine pippenger_blst_built_in(uint256_t scalars_array[]){
     scalars_ptr = new uint8_t* [N_POINTS];
 
     for(size_t i = 0; i < N_POINTS; ++i){
-            blst_scalar_from_uint32( &scalars[i], scalars_array[i].data);
+            blst_scalar_from_uint64( &scalars[i], scalars_array[i].data);
             scalars_ptr[i] = (scalars[i].b);
     }
 
