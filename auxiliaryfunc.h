@@ -1,5 +1,9 @@
 #include "src_from_aztec/numeric/uint256/uint256.hpp"
 
+const uint256_t r_GROUP_ORDER = {
+    uint64_t(0xffffffff00000001), uint64_t(0x53bda402fffe5bfe), uint64_t(0x3339d80809a1d805), uint64_t(0x73eda753299d7d48)
+};
+
 // a simple yet useful prefetch function
 void vec_prefetch(const void *ptr, size_t len)
 {   (void)ptr; (void)len;   }
@@ -149,15 +153,8 @@ void trans_uint256_t_to_qhalf_expr( std::array<int, h_BGMW95> &ret_qhalf_expr, c
 // It is not cryptographically secure.
 
 uint256_t random_scalar_less_than_r(){
-    
-    uint256_t r_group_order;
 
-    r_group_order.data[3] = uint64_t(0x73eda753299d7d48);
-    r_group_order.data[2] = uint64_t(0x3339d80809a1d805);
-    r_group_order.data[1] = uint64_t(0x53bda402fffe5bfe);
-    r_group_order.data[0] = uint64_t(0xffffffff00000001);
-
-    uint256_t ret = r_group_order;
+    uint256_t ret = r_GROUP_ORDER;
 
     std::random_device rd;
     // Initialize Mersenne Twister pseudo-random number generator
@@ -167,7 +164,7 @@ uint256_t random_scalar_less_than_r(){
     // uniformly distributed in range
     std::uniform_int_distribution<> dis(0, 0xffffffff); // '0xffffffff' = 2**32 -1
 
-    while (ret >= r_group_order){ // make sure the scalar is less than r_group_order.
+    while (ret >= r_GROUP_ORDER){ // make sure the scalar is less than r_GROUP_ORDER.
         ret.data[3] = uint64_t(dis(gen)>>1) + (uint64_t(dis(gen))<<31);  // random number is 255 bit
         ret.data[2] = uint64_t(dis(gen)) + (uint64_t(dis(gen))<<32);
         ret.data[1] = uint64_t(dis(gen)) + (uint64_t(dis(gen))<<32);
