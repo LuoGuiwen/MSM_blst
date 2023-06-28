@@ -471,7 +471,7 @@ void test_pippengers(){
         SCALARS_ARRAY = new uint256_t[N_POINTS];
         std::cout << "This is No." << idx << " SCALARS_ARRAY." << std::endl;
         for(size_t i = 0; i < N_POINTS; ++i)\
-            SCALARS_ARRAY[i] = random_scalar_less_than_r();
+            SCALARS_ARRAY[i] = random_scalar_less_than_r_SHA256();
 
         if(TEST_PIPPENGER_Q_OVER_5_CHES){
             /*nh + q/5 method */

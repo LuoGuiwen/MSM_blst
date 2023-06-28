@@ -1,4 +1,6 @@
 #include "src_from_aztec/numeric/uint256/uint256.hpp"
+#include <openssl/rand.h>
+#include <openssl/sha.h>
 
 const uint256_t r_GROUP_ORDER = {
     uint64_t(0xffffffff00000001), uint64_t(0x53bda402fffe5bfe), uint64_t(0x3339d80809a1d805), uint64_t(0x73eda753299d7d48)
@@ -173,6 +175,62 @@ uint256_t random_scalar_less_than_r(){
 }
 
 
+uint256_t random_scalar_less_than_r_SHA256(){
+
+    uint256_t ret = r_GROUP_ORDER;
+    
+    const size_t BUFFER_LENGTH = 32;  // 256 bits
+    unsigned char buffer[BUFFER_LENGTH];
+
+    uint64_t randomNumbers[4];
+
+    while (ret >= r_GROUP_ORDER){ 
+
+        unsigned char hash[SHA256_DIGEST_LENGTH];
+
+        // Initialize the buffer with random data
+        RAND_bytes(buffer, sizeof(buffer));
+
+        // Compute the SHA256 hash of the buffer
+        SHA256(buffer, sizeof(buffer), hash);
+
+        // Store the hash in the array of uint64_t
+        memcpy(randomNumbers, hash, sizeof(uint64_t) * 4);
+
+        ret.data[3] = randomNumbers[3] >> 1;
+        ret.data[2] = randomNumbers[2];
+        ret.data[1] = randomNumbers[1];
+        ret.data[0] = randomNumbers[0];
+    }
+
+    return ret;
+}
+
+
+void generateRandomNumber(uint64_t* numbers) {
+    const size_t BUFFER_LENGTH = 32;  // 256 bits
+    unsigned char buffer[BUFFER_LENGTH];
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+
+    // Initialize the buffer with random data
+    RAND_bytes(buffer, sizeof(buffer));
+
+    // Compute the SHA256 hash of the buffer
+    SHA256(buffer, sizeof(buffer), hash);
+
+    // Store the hash in the array of uint64_t
+    memcpy(numbers, hash, sizeof(uint64_t) * 4);
+}
+
+void printRandomNumber(const uint64_t* numbers) {
+    std::cout << "Random Number: ";
+    for (int i = 0; i < 4; ++i) {
+        std::cout << std::hex << std::setw(16) << std::setfill('0') << numbers[i] << " ";
+    }
+    std::cout << std::dec << std::endl;
+}
+
+
 int omega2( int n){
     int rem = n % 2;
     int exponent = 0;
@@ -238,6 +296,7 @@ void byte_str_from_uint32(uint8_t ret[4], const uint32_t a)
     ret[2] = (byte)(w >> 16);
     ret[3] = (byte)(w >> 24);
 }
+
 
 
 void vec_zero(void *ret, size_t num)

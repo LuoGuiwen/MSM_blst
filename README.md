@@ -22,11 +22,11 @@ of our new construction.
 
 ## Compilation
 The code is tested on M1 Mac OS. 
-<!---
-It relies on SHA256 hash function in openssl library to generate the random scalars. Before running the following code, one should first install openssl ( For example, by running <code>
-brew install openssl
-</code>).
--->
+
+The implementation relies on SHA256 hash function in openssl library to generate the random scalars. Before running the subsequent code, one should first install openssl (For example, by running
+`brew install openssl`), then modify `openssl_include_directory` and `openssl_library_directory` variables in makefile into the correct paths on your computer.
+
+
 In the terminal under 
 <code>
 MSM_blst 
@@ -48,7 +48,7 @@ or
 <code>
 \mathbb{G}_2
 </code>
-respectively. The number of points $n$ is $2^{10}$ by defualt. Check the next part for setting configuration.
+respectively. The number of points $n$ is $2^{10}$ by default. Check the next part for setting configuration.
 
 Note MSM_blst is not compatible with the original blst library since some of the source code in blst has been modified. 
 
