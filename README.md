@@ -78,7 +78,7 @@ We have `config=10` by defualt.
 ## Expected output 
 <!-- difference between the two .cpp files -->
 ```main_p1.cpp``` and ```main_p2.cpp```  have 4 methods to compute $n$-scalar multiplications. They are
-1. Our Construction (CHES 'nh+ q/5'),
+1. Our Construction (CHES 'nh+ 0.21*q'),
 2. Our Construction with integral scalar conversion,
 3. Pippenger Variant (pippenger_variant_BGMW95),
 4. Pippenger (pippenger_blst_built_in).
