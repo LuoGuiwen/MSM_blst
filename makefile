@@ -17,7 +17,7 @@ libblst.a:
 	./build.sh
 
 main_test: $(objects) libblst.a set_config
-	g++ -std=c++17 -o $(output) -g -O2 $(objects) libblst.a
+	g++ -std=c++17 -o $(output) -g -O2 $(objects) libblst.a 
 
 clean:
 	rm -f libblst.a

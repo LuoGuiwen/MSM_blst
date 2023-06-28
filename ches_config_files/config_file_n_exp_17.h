@@ -13,6 +13,6 @@ constexpr int d_MAX_DIFF = 6;
 constexpr int B_SIZE = 220931;
 
 //parameters for q/2 (BGMW95) 
-const int EXPONENT_OF_q_BGMW95 = 18;
+const int EXPONENT_OF_q_BGMW95 = 17;
 const int q_RADIX_PIPPENGER_VARIANT = (int) (1 << EXPONENT_OF_q_BGMW95);
 const int h_BGMW95 = 15;

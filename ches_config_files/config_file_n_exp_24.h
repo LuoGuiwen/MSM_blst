@@ -11,7 +11,6 @@ constexpr int a_LEADING_TERM = 1899369;
 constexpr int d_MAX_DIFF = 6;
 constexpr int B_SIZE = 14139299;
 
-
 //parameters for q/2 (BGMW95) 
 const int EXPONENT_OF_q_BGMW95 = 24;
 const int q_RADIX_PIPPENGER_VARIANT = (int) (1 << EXPONENT_OF_q_BGMW95);

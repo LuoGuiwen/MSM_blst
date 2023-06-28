@@ -305,20 +305,71 @@ blst_p2_affine pippenger_variant_BGMW95(uint256_t scalars_array[]){
     blst_p2_affine** points_ptr;
     points_ptr = new blst_p2_affine* [npoints]; 
 
-    for(int i = 0; i< N_POINTS; ++i){
-        trans_uint256_t_to_qhalf_expr(ret_qhalf_expr, scalars_array[i]);
+    // This is only for BLS12-381 curve
+    if (N_EXP == 13 || N_EXP == 14 || N_EXP == 16 || N_EXP == 17){
 
-        for(int j = 0; j< h_BGMW95; ++j){
-            size_t idx = i*h_BGMW95 + j;
-            scalars[idx]  = ret_qhalf_expr[j];
-            points_ptr[idx] =  PRECOMPUTATION_POINTS_LIST_BGMW95 + idx;
-            if ( scalars[idx] > 0) {
-                booth_signs[idx] = 0; 
+        uint64_t  tt = uint64_t(1) << 62;
+
+        for(int i = 0; i< N_POINTS; ++i){
+
+            uint256_t aa = scalars_array[i];
+           
+            bool condition =  (aa.data[3] > tt); // a > 0.5*q*q**(h-1)
+            if (condition == true) {
+                aa = r_GROUP_ORDER - aa;
+            }
+
+            trans_uint256_t_to_qhalf_expr(ret_qhalf_expr, aa);
+            
+            if (condition == true) {
+                for(int j = 0; j< h_BGMW95; ++j){
+                    size_t idx = i*h_BGMW95 + j;
+                    scalars[idx]  = ret_qhalf_expr[j];
+                    points_ptr[idx] =  PRECOMPUTATION_POINTS_LIST_BGMW95 + idx;
+
+                    // std::cout << "YES" << std::endl;
+                    if ( scalars[idx] > 0) {
+                        booth_signs[idx] = 1; 
+                    }
+                    else{
+                        scalars[idx] = - scalars[idx];
+                        booth_signs[idx] = 0; 
+                    } 
+                } 
             }
             else{
-                scalars[idx] = -scalars[idx];
-                booth_signs[idx] = 1; 
-            }  
+                for(int j = 0; j< h_BGMW95; ++j){
+                    size_t idx = i*h_BGMW95 + j;
+                    scalars[idx]  = ret_qhalf_expr[j];
+                    points_ptr[idx] =  PRECOMPUTATION_POINTS_LIST_BGMW95 + idx;
+
+                    if ( scalars[idx] > 0) {
+                        booth_signs[idx] = 0; 
+                    }
+                    else{
+                        scalars[idx] = - scalars[idx];
+                        booth_signs[idx] = 1; 
+                    } 
+                }
+            }    
+        }
+    }
+    else{
+        for(int i = 0; i< N_POINTS; ++i){
+            trans_uint256_t_to_qhalf_expr(ret_qhalf_expr, scalars_array[i]);
+
+            for(int j = 0; j< h_BGMW95; ++j){
+                size_t idx = i*h_BGMW95 + j;
+                scalars[idx]  = ret_qhalf_expr[j];
+                points_ptr[idx] =  PRECOMPUTATION_POINTS_LIST_BGMW95 + idx;
+                if ( scalars[idx] > 0) {
+                    booth_signs[idx] = 0; 
+                }
+                else{
+                    scalars[idx] = -scalars[idx];
+                    booth_signs[idx] = 1; 
+                }  
+            }
         }
     }
  

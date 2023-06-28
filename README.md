@@ -21,7 +21,13 @@ MSM over fixed points using large precomputation tables as well as the effective
 of our new construction.
 
 ## Compilation
-The code is tested on intel Mac OS, on M1 Mac OS, and on intel ubuntu. In the terminal under 
+The code is tested on M1 Mac OS. 
+<!---
+It relies on SHA256 hash function in openssl library to generate the random scalars. Before running the following code, one should first install openssl ( For example, by running <code>
+brew install openssl
+</code>).
+-->
+In the terminal under 
 <code>
 MSM_blst 
 </code>

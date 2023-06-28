@@ -143,10 +143,8 @@ void trans_uint256_t_to_qhalf_expr( std::array<int, h_BGMW95> &ret_qhalf_expr, c
 }
 
 
-/*Random Number Generator*/
 
-// The following random function is only for experiment purpose.
-// It is not cryptographically secure.
+/*Random Number Generator*/
 
 
 // The following random function is only for experiment purpose.
@@ -165,14 +163,15 @@ uint256_t random_scalar_less_than_r(){
     std::uniform_int_distribution<> dis(0, 0xffffffff); // '0xffffffff' = 2**32 -1
 
     while (ret >= r_GROUP_ORDER){ // make sure the scalar is less than r_GROUP_ORDER.
-        ret.data[3] = uint64_t(dis(gen)>>1) + (uint64_t(dis(gen))<<31);  // random number is 255 bit
+        ret.data[3] = (uint64_t(dis(gen))>>1) + (uint64_t(dis(gen))<<31);  // random number is 255 bit
         ret.data[2] = uint64_t(dis(gen)) + (uint64_t(dis(gen))<<32);
         ret.data[1] = uint64_t(dis(gen)) + (uint64_t(dis(gen))<<32);
         ret.data[0] = uint64_t(dis(gen)) + (uint64_t(dis(gen))<<32);
     }
-
+    
     return ret;
 }
+
 
 int omega2( int n){
     int rem = n % 2;
