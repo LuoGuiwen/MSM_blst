@@ -60,5 +60,6 @@
         "stop_token": "cpp",
         "thread": "cpp",
         "cinttypes": "cpp"
-    }
+    },
+    "cmake.sourceDirectory": "/Users/lgw/Downloads/0_GitHubLocal/MSM_blst/src_from_aztec/numeric"
 }
