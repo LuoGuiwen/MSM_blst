@@ -53,7 +53,7 @@ respectively. The number of points $n$ is $2^{10}$ by default. Check the next pa
 Note MSM_blst is not compatible with the original blst library since some of the source code in blst has been modified. 
 
 ## Bash script parameters:
-`group`: Complie the corresponding group over in $\mathbb{G}_1$ or $\mathbb{G}_2$ respectively.
+`group`: Compile the corresponding group over in $\mathbb{G}_1$ or $\mathbb{G}_2$ respectively.
 
 `config`: Select a list of config files to be included in the algorithm. 
 
