@@ -1,0 +1,33 @@
+# Compiled binaries and libraries
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.lib
+
+# Executables
+main_test*
+bench_*
+
+# macOS
+.DS_Store
+*.dSYM/
+
+# IDE
+.vscode/
+.idea/
+
+# Build artifacts
+build/assembly.S
+build/*.o
+
+# Files from original blst not needed in this project
+.travis.yml
+SECURITY.md
+go.mod
+
+# Temporary files
+*.swp
+*.swo
+*~

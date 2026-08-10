@@ -21,13 +21,13 @@ done
 
 if [ -z "$group" ]
 then
-    group = 1
+    group=1
 fi
 
-# Set default name as "config" if not provided
+# Set default config if not provided
 if [ -z "$configs" ]
 then
-        configs=10
+    configs=10
 fi
 
 # Print the group
@@ -37,7 +37,7 @@ echo "The group is p$group"
 IFS=',' read -ra configs <<< "$configs"
 for config in "${configs[@]}"
 do
-    echo "Execute with config_file_n_exp_$config.h"
+    echo "Execute with config n_exp_$config.h"
     make group=$group config=$config
     ./main_test_p$group
 done
