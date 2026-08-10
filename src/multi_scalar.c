@@ -10,6 +10,7 @@
 
 typedef u_int32_t uint32_t; // On ubuntu system, it might be no uint32_t
 typedef struct {int m; int b; int alpha;} digit_decomposition;
+typedef struct {limb_t bits; uint32_t rank_before; uint32_t padding;} bucket_rank_word;
 
 /*
  * Infinite point among inputs would be devastating. Shall we change it?
@@ -462,6 +463,56 @@ static void ptype##_tile_pippenger_d_CHES(ptype *ret, \
     ptype##_integrate_buckets_accumulation_d_CHES(ret, buckets, bucket_set_ascend, bucket_set_size, d_max);\
 }\
 \
+static int ptype##_bucket_rank_index(const bucket_rank_word bucket_rank_table[], int bucket_value){\
+    const bucket_rank_word *entry = &bucket_rank_table[((uint32_t)bucket_value) >> 6];\
+    uint32_t bit = ((uint32_t)bucket_value) & 63;\
+    limb_t lower_mask = (((limb_t)1) << bit) - 1;\
+    return (int)(entry->rank_before + __builtin_popcountll(entry->bits & lower_mask));\
+}\
+\
+static void ptype##_tile_pippenger_d_CHES_rank(ptype *ret, \
+                                    const ptype##_affine *const points[], \
+                                    size_t npoints, \
+                                    const int scalars[], const unsigned char booth_signs[], \
+                                    ptype##xyzz buckets[], int bucket_set_ascend[], const bucket_rank_word bucket_rank_table[],\
+                                    size_t bucket_set_size, int d_max){\
+    \
+    vec_zero(buckets, sizeof(buckets[0])*bucket_set_size); \
+    vec_zero(ret, sizeof(*ret)); \
+    \
+    int booth_idx, booth_idx_nxt;\
+    size_t i;\
+    unsigned char booth_sign;\
+    const ptype##_affine *point;\
+    \
+    booth_idx = ptype##_bucket_rank_index(bucket_rank_table, *scalars++);\
+    booth_idx_nxt = ptype##_bucket_rank_index(bucket_rank_table, *scalars++);\
+    \
+    vec_prefetch(&bucket_rank_table[((uint32_t)*scalars) >> 6], sizeof(bucket_rank_table[0]));\
+    ptype##_prefetch_CHES(buckets, booth_idx_nxt);\
+    \
+    booth_sign = *booth_signs++;\
+    point = *points++;\
+    if(booth_idx) ptype##_bucket_CHES(buckets, booth_idx, point, booth_sign);\
+    \
+    --npoints;\
+    for(i = 1; i < npoints; ++i){\
+        booth_idx = booth_idx_nxt;\
+        booth_idx_nxt = ptype##_bucket_rank_index(bucket_rank_table, *scalars++);\
+        \
+        vec_prefetch(&bucket_rank_table[((uint32_t)*scalars) >> 6], sizeof(bucket_rank_table[0]));\
+        ptype##_prefetch_CHES(buckets, booth_idx_nxt);\
+        \
+        point = *points++;\
+        booth_sign = *booth_signs++;\
+        if(booth_idx) ptype##_bucket_CHES(buckets, booth_idx, point, booth_sign);\
+    }\
+    point = *points;\
+    booth_sign = *booth_signs;\
+    if(booth_idx) ptype##_bucket_CHES(buckets, booth_idx_nxt, point, booth_sign);\
+    ptype##_integrate_buckets_accumulation_d_CHES(ret, buckets, bucket_set_ascend, bucket_set_size, d_max);\
+}\
+\
 \
 static void ptype##_tile_pippenger_d_CHES_noindexhash(ptype *ret, \
                                     const ptype##_affine *const points[], \
@@ -651,6 +702,20 @@ void prefix##_tile_pippenger_d_CHES(ptype *ret, \
                                     npoints, \
                                     scalars,  booth_signs, \
                                     buckets, bucket_set_ascend, bucket_value_to_its_index,\
+                                    bucket_set_size, d_max);\
+}\
+\
+void prefix##_tile_pippenger_d_CHES_rank(ptype *ret, \
+                                    const ptype##_affine *const points[], \
+                                    size_t npoints, \
+                                    const int scalars[], const unsigned char booth_signs[], \
+                                    ptype##xyzz buckets[], int bucket_set_ascend[], const bucket_rank_word bucket_rank_table[],\
+                                    size_t bucket_set_size, int d_max){\
+    ptype##_tile_pippenger_d_CHES_rank(ret, \
+                                    points, \
+                                    npoints, \
+                                    scalars, booth_signs, \
+                                    buckets, bucket_set_ascend, bucket_rank_table,\
                                     bucket_set_size, d_max);\
 }\
 \

@@ -27,6 +27,7 @@
 
 #include "bindings/blst.h"
 #include "external/uint256/uint256.hpp"
+#include "msm/include/bucket_index.h"
 #include "msm/include/bucket_set.h"
 #include "msm/include/random_utils.h"
 #include "msm/include/scalar_conversion.h"

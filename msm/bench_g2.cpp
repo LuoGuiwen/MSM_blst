@@ -14,11 +14,27 @@ All functions must be invoked after init_xx().
 
 // don't use namespace std, there is a uint_8 and byte definition that are not compatible with std.
 
+#include "bindings/blst.h"  // provides digit_decomposition, blst types
 
 /***----***
 Define configuration
 ***----***/
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
 #include "config/config_file.h" //define configuration in a seperate file.
+#ifndef MSM_BUCKET_INDEX_RANK
+#define MSM_BUCKET_INDEX_RANK 0
+#endif
+#ifndef MSM_BENCH_TEST_NUM
+#define MSM_BENCH_TEST_NUM 5
+#endif
+#ifndef MSM_BENCH_LOOP_NUM
+#define MSM_BENCH_LOOP_NUM 0
+#endif
+#ifndef MSM_BENCH_DETERMINISTIC
+#define MSM_BENCH_DETERMINISTIC 0
+#endif
 bool TEST_PIPPENGER_Q_OVER_5_CHES = 1;
 bool TEST_PIPPENGER_BGMW95 = 1; // Due to the momory size limitation, some time we need to switch off one of the test.
 
@@ -31,7 +47,11 @@ digit_decomposition* DIGIT_CONVERSION_HASH_TABLE;
 
 std::set<int> MULTI_SET = {1, 2, 3};
 int* BUCKET_SET;
+#if MSM_BUCKET_INDEX_RANK
+bucket_rank_word* BUCKET_VALUE_TO_ITS_RANK;
+#else
 int* BUCKET_VALUE_TO_ITS_INDEX; 
+#endif
 
 blst_p2_affine* FIX_POINTS_LIST;
 blst_p2_affine* PRECOMPUTATION_POINTS_LIST_3nh;
@@ -119,10 +139,25 @@ void init_pippenger_CHES_q_over_5(){
     construct_bucket_set(BUCKET_SET, q_RADIX, a_LEADING_TERM);
     std::cout<< "BUCKET_SET constructed. The size of BUCKET_SET is: " << B_SIZE << std::endl;
 
+#if MSM_BUCKET_INDEX_RANK
+    const size_t rank_word_count = bucket_rank_table_word_count(q_RADIX / 2);
+    BUCKET_VALUE_TO_ITS_RANK = new bucket_rank_word[rank_word_count]();
+    construct_bucket_rank_table(BUCKET_VALUE_TO_ITS_RANK, rank_word_count,
+                                BUCKET_SET, B_SIZE);
+    if (!check_bucket_rank_table(BUCKET_VALUE_TO_ITS_RANK, BUCKET_SET, B_SIZE)) {
+        std::cerr << "BUCKET_VALUE_TO_ITS_RANK validation failed" << std::endl;
+        std::exit(1);
+    }
+    std::cout << "BUCKET_INDEX rank bytes: "
+              << rank_word_count * sizeof(bucket_rank_word) << std::endl;
+#else
     BUCKET_VALUE_TO_ITS_INDEX = new int[q_RADIX/2 +1];
     for(size_t i = 0; i < B_SIZE; ++i){
         BUCKET_VALUE_TO_ITS_INDEX[BUCKET_SET[i]] = i;
     }
+    std::cout << "BUCKET_INDEX direct bytes: "
+              << (q_RADIX / 2 + 1) * sizeof(int) << std::endl;
+#endif
     
     // Initialize  DIGIT_CONVERSION_HASH_TABLE;
     DIGIT_CONVERSION_HASH_TABLE = new digit_decomposition[q_RADIX+1];
@@ -169,7 +204,11 @@ void free_init_pippenger_CHES_q_over_5(){
 
     delete[] PRECOMPUTATION_POINTS_LIST_3nh;
     delete[] DIGIT_CONVERSION_HASH_TABLE;
+#if MSM_BUCKET_INDEX_RANK
+    delete[] BUCKET_VALUE_TO_ITS_RANK;
+#else
     delete[] BUCKET_VALUE_TO_ITS_INDEX;
+#endif
     delete[] BUCKET_SET;
 }
 
@@ -220,8 +259,13 @@ blst_p2_affine pippenger_variant_q_over_5_CHES(uint256_t scalars_array[]){
 
     buckets = new blst_p2xyzz [B_SIZE];
 
+#if MSM_BUCKET_INDEX_RANK
+    blst_p2_tile_pippenger_d_CHES_rank(&ret, points_ptr, npoints, scalars, booth_signs,\
+                                         buckets, BUCKET_SET, BUCKET_VALUE_TO_ITS_RANK, B_SIZE, d_MAX_DIFF);
+#else
     blst_p2_tile_pippenger_d_CHES(&ret, points_ptr, npoints, scalars, booth_signs,\
-                                         buckets, BUCKET_SET, BUCKET_VALUE_TO_ITS_INDEX , B_SIZE, d_MAX_DIFF);
+                                         buckets, BUCKET_SET, BUCKET_VALUE_TO_ITS_INDEX, B_SIZE, d_MAX_DIFF);
+#endif
     delete[] buckets;
     delete[] points_ptr;
     delete[] booth_signs;    
@@ -266,8 +310,13 @@ blst_p2_affine pippenger_variant_q_over_5_CHES_integral_scalar_conversion(uint25
     buckets = new blst_p2xyzz [B_SIZE];
     blst_p2 ret;
 
+#if MSM_BUCKET_INDEX_RANK
+    blst_p2_tile_pippenger_d_CHES_rank(&ret, points_ptr, npoints, scalars, booth_signs,\
+                                         buckets, BUCKET_SET, BUCKET_VALUE_TO_ITS_RANK, B_SIZE, d_MAX_DIFF);
+#else
     blst_p2_tile_pippenger_d_CHES(&ret, points_ptr, npoints, scalars, booth_signs,\
-                                         buckets, BUCKET_SET, BUCKET_VALUE_TO_ITS_INDEX , B_SIZE, d_MAX_DIFF);
+                                         buckets, BUCKET_SET, BUCKET_VALUE_TO_ITS_INDEX, B_SIZE, d_MAX_DIFF);
+#endif
     delete[] buckets;
     delete[] points_ptr;
     delete[] booth_signs;    
@@ -424,13 +473,18 @@ blst_p2_affine pippenger_blst_built_in(uint256_t scalars_array[]){
 void test_pippengers(){
     std::cout << "\nPIPPENGERS TEST OVER G2 for NPOINTS:  2**" << N_EXP << std::endl;
 
-    size_t TEST_NUM = 5;
+    size_t TEST_NUM = MSM_BENCH_TEST_NUM;
     size_t LOOP_NUM;
 
+#if MSM_BENCH_LOOP_NUM > 0
+    LOOP_NUM = MSM_BENCH_LOOP_NUM;
+#else
     if(N_EXP <= 8) LOOP_NUM = 40;
     else if(N_EXP <= 12) LOOP_NUM = 10;
     else if(N_EXP<= 16) LOOP_NUM = 5;
     else LOOP_NUM = 1;
+#endif
+    std::cout << "Benchmark repetitions: " << TEST_NUM << " x " << LOOP_NUM << std::endl;
     
     std::chrono::microseconds acc_t1, acc_t2, acc_t3, acc_t4, acc_t5, acc_conver_q_over_5, acc_conver_bgmw, diff, min_t12; // time accumulation
     acc_t1 = std::chrono::microseconds::zero();
@@ -452,14 +506,20 @@ void test_pippengers(){
 
     scalar_MB_expr ret_MB_expr;
     std::array< int, h_BGMW95> ret_qhalf_expr;
+    uint64_t scalar_counter = 0;
 
     for( int idx = 1; idx <= TEST_NUM; ++idx){
 
         uint256_t* SCALARS_ARRAY;
         SCALARS_ARRAY = new uint256_t[N_POINTS];
         std::cout << "This is No." << idx << " SCALARS_ARRAY." << std::endl;
-        for(size_t i = 0; i < N_POINTS; ++i)\
+        for(size_t i = 0; i < N_POINTS; ++i) {
+#if MSM_BENCH_DETERMINISTIC
+            SCALARS_ARRAY[i] = deterministic_scalar_less_than_r_SHA256(scalar_counter++);
+#else
             SCALARS_ARRAY[i] = random_scalar_less_than_r_SHA256();
+#endif
+        }
 
         if(TEST_PIPPENGER_Q_OVER_5_CHES){
             /*nh + q/5 method */
@@ -610,4 +670,3 @@ int main(){
 
     return 0;
 }
-

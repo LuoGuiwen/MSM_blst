@@ -251,6 +251,11 @@ void blst_p1s_tile_pippenger(blst_p1 *ret, const blst_p1_affine *const points[],
 typedef struct { blst_fp x, y, zzz, zz; } blst_p1xyzz;
 typedef struct { blst_fp2 x, y, zzz, zz; } blst_p2xyzz;
 typedef struct {int m; int b; int alpha;} digit_decomposition;
+typedef struct {
+    uint64_t bits;
+    uint32_t rank_before;
+    uint32_t padding;
+} bucket_rank_word;
 
 size_t blst_p1s_mult_pippenger_scratch_sizeof_CHES(size_t window); //window = 2**radixexp
 
@@ -280,6 +285,13 @@ void blst_p1_tile_pippenger_d_CHES(blst_p1 *ret, \
                                     size_t npoints, \
                                     const int scalars[], const unsigned char booth_signs[], \
                                     blst_p1xyzz buckets[], int bucket_set_ascend[], int bucket_value_to_its_index[],\
+                                    size_t bucket_set_size, int d_max);
+
+void blst_p1_tile_pippenger_d_CHES_rank(blst_p1 *ret, \
+                                    const blst_p1_affine *const points[], \
+                                    size_t npoints, \
+                                    const int scalars[], const unsigned char booth_signs[], \
+                                    blst_p1xyzz buckets[], int bucket_set_ascend[], const bucket_rank_word bucket_rank_table[],\
                                     size_t bucket_set_size, int d_max);
 
 void blst_p1_tile_pippenger_d_CHES_noindexhash(blst_p1 *ret, \
@@ -333,6 +345,13 @@ void blst_p2_tile_pippenger_d_CHES(blst_p2 *ret, \
                                     size_t npoints, \
                                     const int scalars[], const unsigned char booth_signs[], \
                                     blst_p2xyzz buckets[], int bucket_set_ascend[], int bucket_value_to_its_index[],\
+                                    size_t bucket_set_size, int d_max);
+
+void blst_p2_tile_pippenger_d_CHES_rank(blst_p2 *ret, \
+                                    const blst_p2_affine *const points[], \
+                                    size_t npoints, \
+                                    const int scalars[], const unsigned char booth_signs[], \
+                                    blst_p2xyzz buckets[], int bucket_set_ascend[], const bucket_rank_word bucket_rank_table[],\
                                     size_t bucket_set_size, int d_max);
 
 void blst_p2_tile_pippenger_d_CHES_noindexhash(blst_p2 *ret, \

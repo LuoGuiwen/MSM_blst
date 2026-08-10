@@ -62,6 +62,32 @@ inline uint256_t random_scalar_less_than_r_SHA256()
     return ret;
 }
 
+/** Generate a reproducible benchmark scalar from a monotonically increasing counter. */
+inline uint256_t deterministic_scalar_less_than_r_SHA256(uint64_t counter)
+{
+    unsigned char input[16];
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+
+    for (uint64_t attempt = 0;; ++attempt) {
+        for (int i = 0; i < 8; ++i) {
+            input[i] = static_cast<unsigned char>(counter >> (8 * i));
+            input[8 + i] = static_cast<unsigned char>(attempt >> (8 * i));
+        }
+        SHA256(input, sizeof(input), hash);
+
+        uint256_t ret = 0;
+        for (int limb = 0; limb < 4; ++limb) {
+            uint64_t value = 0;
+            for (int byte_index = 0; byte_index < 8; ++byte_index)
+                value |= uint64_t(hash[8 * limb + byte_index]) << (8 * byte_index);
+            ret.data[limb] = value;
+        }
+        ret.data[3] >>= 1;
+        if (ret < r_GROUP_ORDER)
+            return ret;
+    }
+}
+
 /**
  * Generate 4×64-bit random numbers via SHA256(rand_bytes).
  */

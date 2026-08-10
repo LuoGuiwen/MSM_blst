@@ -16,33 +16,13 @@
 
 #include <array>
 #include <cstdint>
-#include <iostream>
 
 #include "external/uint256/uint256.hpp"
 
-/**
- * Digit decomposition: a scalar digit expressed as m * b with a carry flag.
- *   m     — multiplier (1, 2, or 3)
- *   b     — bucket index
- *   alpha — 0 = positive (m*b), 1 = negative (q - m*b, carry propagated)
- */
-struct digit_decomposition {
-    int m;
-    int b;
-    int alpha;
-};
+// digit_decomposition is defined in bindings/blst.h
 
 /** MB expression: array of (m, b) pairs, length = h_LEN_SCALAR (from config). */
 typedef std::array<std::array<int, 2>, h_LEN_SCALAR> scalar_MB_expr;
-
-inline void print(const scalar_MB_expr& expr)
-{
-    std::cout << std::dec << "{";
-    for (auto a : expr) {
-        std::cout << "[ " << a[0] << ", " << a[1] << " ]";
-    }
-    std::cout << "}" << std::endl;
-}
 
 /* ---- Scalar conversion functions ---- */
 

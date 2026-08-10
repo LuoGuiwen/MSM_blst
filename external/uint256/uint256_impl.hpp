@@ -1,8 +1,18 @@
 #pragma once
-#include "../bitop/get_msb.hpp"
-// #include <common/assert.hpp>  
 
 namespace numeric {
+
+/**
+ * Returns the index of the most significant bit (0-based).
+ * Returns 0 for input 0.
+ */
+constexpr uint64_t get_msb(uint64_t x)
+{
+    if (x == 0) return 0;
+    uint64_t msb = 0;
+    while (x >>= 1) msb++;
+    return msb;
+}
 
 constexpr std::pair<uint64_t, uint64_t> uint256_t::mul_wide(const uint64_t a, const uint64_t b) const
 {
