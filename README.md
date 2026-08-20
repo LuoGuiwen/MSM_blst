@@ -6,6 +6,20 @@ method via precomputation.
 
 > Built on top of a modified [blst](https://github.com/supranational/blst) library.
 
+## Paper and Artifact
+
+This repository is the artifact accompanying the paper
+[**Speeding Up Multi-Scalar Multiplication over Fixed Points Towards Efficient
+zkSNARKs**](https://tches.iacr.org/index.php/TCHES/article/view/10287), published
+in *IACR Transactions on Cryptographic Hardware and Embedded Systems*.
+
+### Typo in Algorithm 5
+
+In Algorithm 5 of the paper, `B_0` on lines 3 and 6 should be `B_1`. This is a
+typographical error only and does not affect the paper's conclusions. The
+implementation uses the intended construction; see
+[`msm/include/bucket_set.h`, starting at line 101](https://github.com/LuoGuiwen/MSM_blst/blob/3edc3cd95bd54082f9f35ca6b84fe6d8f12eb3b4/msm/include/bucket_set.h#L101).
+
 ---
 
 ## Directory Structure
@@ -206,10 +220,43 @@ Improvement, blst CHES_q_over_5 vs pipp: 33.333%
 
 ```bash
 g++ -std=c++17 -o bucket_set_test -g -O2 msm/bucket_set_standalone.cpp
-./bucket_set_test
+./bucket_set_test 13  # q = 2^13
 ```
 
-Prints the bucket set size, maximum gap, density ratio, and validity check.
+The required argument is `EXPONENT_OF_q`; the program computes
+`q_RADIX = 2^EXPONENT_OF_q`. This utility reproduces the bucket-set data in
+**Table 6: Bucket sets over BLS12-381 curve** of the paper. For each value of
+`q`, it prints the following four lines, in order:
+
+1. bucket set size;
+2. maximum gap;
+3. density ratio (bucket set size divided by `q`); and
+4. validity check (`1` means valid).
+
+For example, run the part of Table 6 covering `q = 2^10` through `q = 2^19`
+with:
+
+```bash
+for exponent in {10..19}; do
+    echo "q = 2^${exponent}"
+    ./bucket_set_test "${exponent}"
+done
+```
+
+The output values are:
+
+| `q` | Bucket set size | Maximum gap | Density ratio | Validity check |
+|---:|---:|---:|---:|---:|
+| `2^10` | 218 | 6 | 0.212891 | 1 |
+| `2^11` | 427 | 6 | 0.208496 | 1 |
+| `2^12` | 857 | 6 | 0.209229 | 1 |
+| `2^13` | 1,725 | 6 | 0.210571 | 1 |
+| `2^14` | 3,417 | 6 | 0.208557 | 1 |
+| `2^15` | 17,312 | 4 | 0.528320 | 1 |
+| `2^16` | 18,343 | 6 | 0.279892 | 1 |
+| `2^17` | 69,249 | 4 | 0.528328 | 1 |
+| `2^18` | 54,618 | 6 | 0.208351 | 1 |
+| `2^19` | 109,244 | 6 | 0.208366 | 1 |
 
 ---
 
